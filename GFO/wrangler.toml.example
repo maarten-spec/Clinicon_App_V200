@@ -1,0 +1,9 @@
+name = "clinicon-stellenplan"
+main = "worker/index.js"
+compatibility_date = "2026-01-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "clinicon_stellenplan"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "worker/migrations"

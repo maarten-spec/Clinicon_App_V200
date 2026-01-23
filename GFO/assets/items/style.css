@@ -39,7 +39,7 @@ h4{font-size:var(--font-size-h4);}
   border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:stretch; gap:12px; padding:16px 12px;
   width:240px; overflow:auto;
 }
-.brand{display:flex; align-items:center; justify-content:center; padding:8px 10px; width:100%; text-decoration:none;}
+.brand{display:flex; align-items:center; justify-content:center; padding:0; width:100%; text-decoration:none; background:transparent;}
 .brand img{width:180px; height:auto; object-fit:contain}
 .nav{display:flex; flex-direction:column; gap:8px; width:100%; margin-top:8px}
 .nav a{

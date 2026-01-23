@@ -100,9 +100,14 @@ main{
 
         <section class="status-grid card">
           <div class="status-card">
-            <span>Aktive Standorte</span>
-            <strong>18</strong>
-            <span>inklusive laufender Kooperationen</span>
+            <span>Verbund-Auslastung</span>
+            <strong>86&nbsp;%</strong>
+            <span>Klinikverbund Demo-Kennzahl</span>
+          </div>
+          <div class="status-card">
+            <span>PPUG Statusmix</span>
+            <strong>OK&nbsp;5 &middot; Warn&nbsp;2 &middot; Risiko&nbsp;1</strong>
+            <span>Stellenplan Insights (Demo)</span>
           </div>
           <div class="status-card">
             <span>Aktualisierte Tabellen</span>
@@ -141,7 +146,7 @@ main{
     const label = document.getElementById('quickSiteLabel');
     if(!link || !label) return;
     if(site){
-      link.href = `erfassung-da03.html?site=${encodeURIComponent(site)}`;
+      link.href = `erfassung.html?site=${encodeURIComponent(site)}`;
       label.textContent = `Standort ${site.toUpperCase()}`;
     }else{
       label.textContent = 'Standort waehlen';
@@ -220,6 +225,7 @@ main{
   </script>
 </body>
 </html>
+
 
 
 
