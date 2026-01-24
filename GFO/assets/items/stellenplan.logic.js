@@ -4,6 +4,7 @@
 const MONTH_LABELS = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const MONTH_COUNT = MONTH_LABELS.length;
 const DEFAULT_EXTRAS = ["Schueler:in", "Azubi", "MFA/ATA"];
+const MIN_YEAR = 2026;
 const EXTENSION_TARGET_YEAR = 2030;
 const API_BASE = "";
 
@@ -13,11 +14,12 @@ const numberFormat = new Intl.NumberFormat("de-DE", {
 });
 
 const state = {
-  year: new Date().getFullYear(),
+  year: Math.max(new Date().getFullYear(), MIN_YEAR),
   qualifications: [],
   employees: [],
   extras: [],
-  planTargets: { months: Array(MONTH_COUNT).fill(0) }
+  planTargets: { months: Array(MONTH_COUNT).fill(0) },
+  dienstart: "DA03"
 };
 
 const uiState = {
@@ -31,6 +33,7 @@ const selectors = {
   addEmployeeButton: "#btnAddEmployee",
   addExtraButton: "#btnAddExtra",
   saveStatus: "#saveStatus",
+  dienstartSelect: "#dienstartSelect",
   employeeBody: "#planBody",
   extraBody: "#extraBody",
   sumRow: "#sumRow",
@@ -68,7 +71,8 @@ function getYear() {
   const input = $(selectors.yearInput);
   if (!input) return state.year;
   const parsed = Number.parseInt(input.value, 10);
-  return Number.isFinite(parsed) ? parsed : state.year;
+  if (!Number.isFinite(parsed)) return state.year;
+  return Math.max(parsed, MIN_YEAR);
 }
 
 function setStatus(message, isError = false) {
@@ -198,12 +202,77 @@ function buildHeaderRow(extraLabel) {
 }
 
 function renderQualificationOptions(selectedId) {
-  const options = [`<option value="">Qualifikation waehlen</option>`];
-  state.qualifications.forEach((qual) => {
+  const qualifications = Array.isArray(state.qualifications) ? state.qualifications : [];
+  const optionsByGroup = {
+    Pflichtqualifikationen: [],
+    Fachpflege: [],
+    Funktionen: [],
+    Leitung: [],
+    Akut: [],
+    Weitere: []
+  };
+
+  const normalizeKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const groupByLabel = {
+    pflegefachkraft: "Pflichtqualifikationen",
+    pflegefachassistenz: "Pflichtqualifikationen",
+    ungelerntkraft: "Pflichtqualifikationen",
+    fachpflegekraftfuerintensivpflegeundanaesthesie: "Fachpflege",
+    fachpflegekraftfueropdienstperioperativepflege: "Fachpflege",
+    fachpflegekraftfueronkologie: "Fachpflege",
+    fachpflegekraftfuerpsychiatriepsychiatrischepflege: "Fachpflege",
+    fachpflegekraftfuerpaediatrischeintensivpflegepaediatrie: "Fachpflege",
+    fachpflegekraftfuerendoskopie: "Fachpflege",
+    praxisanleitungpraxisanleiterin: "Funktionen",
+    wundexpertinicwwundmanagerin: "Funktionen",
+    painnursealgesiologischefachassistenz: "Funktionen",
+    hygienebeauftragterinderpflegehygienefachkraft: "Funktionen",
+    palliativcarefachkraft: "Funktionen",
+    atemtherapeutinatmungstherapie: "Funktionen",
+    stomaundkontinenzberaterin: "Funktionen",
+    diabetesberatung: "Funktionen",
+    casemanagemententlassmanagement: "Funktionen",
+    notfallpflege: "Funktionen",
+    gerontopsychiatrischezusatzqualifikation: "Funktionen",
+    stationsleitungleitungeinereinheit: "Leitung",
+    pflegedienstleitungpdl: "Leitung",
+    pflegemanagementpflegepaedagogik: "Leitung",
+    qualitaetsmanagementqmbeauftragterauditorin: "Leitung",
+    reanimationsalsblsinstruktorin: "Akut",
+    deeskalationaggressionsmanagement: "Akut",
+    cirspatientensicherheitsbeauftragter: "Akut",
+    transfusionsbeauftragterblutprodukteschulung: "Akut",
+    medizinproduktebeauftragtermpgeinweisungen: "Akut",
+    sterilgutzsvagrundlagen: "Akut"
+  };
+
+  qualifications.forEach((qual) => {
+    const code = String(qual.code || "");
+    const label = String(qual.label || "");
+    let group = "Weitere";
+
+    if (code.startsWith("REQ_")) group = "Pflichtqualifikationen";
+    else if (code.startsWith("FACH_")) group = "Fachpflege";
+    else if (code.startsWith("FUNC_")) group = "Funktionen";
+    else if (code.startsWith("LEAD_")) group = "Leitung";
+    else if (code.startsWith("AKUT_")) group = "Akut";
+    else {
+      const key = normalizeKey(label);
+      group = groupByLabel[key] || "Weitere";
+    }
+
     const selected = String(qual.id) === String(selectedId) ? " selected" : "";
-    options.push(`<option value="${qual.id}"${selected}>${qual.label}</option>`);
+    optionsByGroup[group].push(`<option value="${qual.id}"${selected}>${label}</option>`);
   });
-  return options.join("");
+
+  const output = ['<option value="">Qualifikation waehlen</option>'];
+  Object.entries(optionsByGroup).forEach(([group, list]) => {
+    if (!list.length) return;
+    output.push(`<optgroup label="${group}">`);
+    output.push(list.join(""));
+    output.push('</optgroup>');
+  });
+  return output.join("");
 }
 
 function renderRows(tbody, rows, type) {
@@ -536,6 +605,14 @@ function bindControls() {
     addExtraButton.addEventListener("click", () => {
       state.extras.push(createBlankExtra());
       renderAll();
+    });
+  }
+
+  const dienstartSelect = $(selectors.dienstartSelect);
+  if (dienstartSelect) {
+    dienstartSelect.value = state.dienstart || "DA03";
+    dienstartSelect.addEventListener("change", () => {
+      state.dienstart = dienstartSelect.value || "DA03";
     });
   }
 

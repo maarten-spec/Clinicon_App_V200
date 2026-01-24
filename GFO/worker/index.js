@@ -12,6 +12,39 @@ const CATEGORY_MAIN = "main";
 const CATEGORY_EXTRA = "extra";
 const DEFAULT_SCOPE = "total";
 
+const QUALIFICATION_SEED = [
+  { code: "REQ_PFK", label: "Pflegefachkraft" },
+  { code: "REQ_PFA", label: "Pflegefachassistenz" },
+  { code: "REQ_UK", label: "Ungelernte Kraft" },
+  { code: "FACH_INT", label: "Fachpflegekraft fuer Intensivpflege und Anaesthesie" },
+  { code: "FACH_OP", label: "Fachpflegekraft fuer OP-Dienst / perioperative Pflege" },
+  { code: "FACH_ONK", label: "Fachpflegekraft fuer Onkologie" },
+  { code: "FACH_PSY", label: "Fachpflegekraft fuer Psychiatrie (psychiatrische Pflege)" },
+  { code: "FACH_PAE", label: "Fachpflegekraft fuer Paediatrische Intensivpflege / Paediatrie" },
+  { code: "FACH_END", label: "Fachpflegekraft fuer Endoskopie" },
+  { code: "FUNC_PRAXIS", label: "Praxisanleitung (Praxisanleiter:in)" },
+  { code: "FUNC_WUND", label: "Wundexpert:in ICW / Wundmanager:in" },
+  { code: "FUNC_PAIN", label: "Pain Nurse / algesiologische Fachassistenz" },
+  { code: "FUNC_HYG", label: "Hygienebeauftragte:r in der Pflege / Hygienefachkraft" },
+  { code: "FUNC_PALL", label: "Palliativ-Care-Fachkraft" },
+  { code: "FUNC_ATEM", label: "Atemtherapeut:in / Atmungstherapie" },
+  { code: "FUNC_STOMA", label: "Stoma- und Kontinenzberater:in" },
+  { code: "FUNC_DIAB", label: "Diabetesberatung" },
+  { code: "FUNC_CASE", label: "Case Management / Entlassmanagement" },
+  { code: "FUNC_NOTF", label: "Notfallpflege" },
+  { code: "FUNC_GERONTO", label: "Gerontopsychiatrische Zusatzqualifikation" },
+  { code: "LEAD_STL", label: "Stationsleitung / Leitung einer Einheit" },
+  { code: "LEAD_PDL", label: "Pflegedienstleitung (PDL)" },
+  { code: "LEAD_MGMT", label: "Pflegemanagement / Pflegepaedagogik" },
+  { code: "LEAD_QM", label: "Qualitaetsmanagement (QM-Beauftragte:r / Auditor:in)" },
+  { code: "AKUT_REA", label: "Reanimations-/ALS-/BLS-Instruktor:in" },
+  { code: "AKUT_DEESK", label: "Deeskalation / Aggressionsmanagement" },
+  { code: "AKUT_CIRS", label: "CIRS-/Patientensicherheitsbeauftragte:r" },
+  { code: "AKUT_TRANS", label: "Transfusionsbeauftragte:r / Blutprodukte-Schulung" },
+  { code: "AKUT_MPG", label: "Medizinproduktebeauftragte:r / MPG-Einweisungen" },
+  { code: "AKUT_ZSVA", label: "Sterilgut/ZSVA-Grundlagen" }
+];
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": "*",
@@ -57,6 +90,23 @@ async function handleOptions() {
   return new Response(null, { status: 204, headers: JSON_HEADERS });
 }
 
+async function ensureQualifications(db) {
+  const existing = await db.prepare("SELECT code, label FROM qualifications").all();
+  const codeSet = new Set((existing.results || []).map((row) => String(row.code || "")));
+  const labelSet = new Set((existing.results || []).map((row) => String(row.label || "").toLowerCase().trim()));
+
+  for (const qual of QUALIFICATION_SEED) {
+    const code = String(qual.code || "");
+    const label = String(qual.label || "");
+    if (!code || !label) continue;
+    if (codeSet.has(code) || labelSet.has(label.toLowerCase().trim())) continue;
+    await db
+      .prepare("INSERT INTO qualifications (code, label) VALUES (?, ?)")
+      .bind(code, label)
+      .run();
+  }
+}
+
 async function handleGetStellenplan(request, env) {
   const url = new URL(request.url);
   const year = toInt(url.searchParams.get("year"), new Date().getFullYear());
@@ -65,6 +115,8 @@ async function handleGetStellenplan(request, env) {
   }
 
   const db = env.DB;
+
+  await ensureQualifications(db);
 
   const qualifications = await db
     .prepare("SELECT id, code, label FROM qualifications WHERE is_active=1 ORDER BY label ASC")

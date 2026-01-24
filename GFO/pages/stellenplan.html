@@ -18,8 +18,8 @@
       flex-direction:column;
       gap:20px;
       width:100%;
-      max-width:none;
-      margin:0;
+      max-width:1320px;
+      margin:0 auto;
     }
     .card{
       background:#fff;
@@ -30,7 +30,7 @@
     }
     .plan-header{
       display:flex;
-      align-items:flex-start;
+      align-items:center;
       justify-content:space-between;
       gap:16px;
       flex-wrap:wrap;
@@ -47,22 +47,33 @@
     .plan-actions{
       display:flex;
       flex-wrap:wrap;
-      gap:10px;
+      gap:12px;
       align-items:center;
+      justify-content:flex-start;
     }
-    .plan-actions label{
+    .plan-field{
       display:flex;
-      flex-direction:column;
-      gap:4px;
+      align-items:center;
+      gap:8px;
       font-size:0.85rem;
       color:var(--muted);
       font-weight:600;
     }
-    .plan-actions input{
+    .plan-field span{ white-space:nowrap; }
+    .plan-field input{
       padding:8px 10px;
       border-radius:10px;
       border:1px solid var(--border);
       font:inherit;
+      width:90px;
+    }
+    .plan-select{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      font:inherit;
+      min-width:120px;
     }
     .btn{
       border:none;
@@ -204,8 +215,20 @@
         <p>Monatswerte pflegen, &Oslash; berechnen und Summen vergleichen.</p>
       </div>
       <div class="plan-actions">
-        <label>Jahr
-          <input id="yearInput" type="number" min="2020" max="2100" />
+        <label class="plan-field">
+          <span>Jahr</span>
+          <input id="yearInput" type="number" min="2026" max="2100" />
+        </label>
+        <label class="plan-field">
+          <span>Anwahlgruppe</span>
+          <select id="dienstartSelect" class="plan-select">
+            <option value="DA01">DA01</option>
+            <option value="DA02">DA02</option>
+            <option value="DA03" selected>DA03</option>
+            <option value="DA04">DA04</option>
+            <option value="DA05">DA05</option>
+            <option value="DA06">DA06</option>
+          </select>
         </label>
         <button id="btnAddEmployee" class="btn secondary" type="button">+ Mitarbeiter:in</button>
         <button id="btnAddExtra" class="btn secondary" type="button">+ Zusatzgruppe</button>
