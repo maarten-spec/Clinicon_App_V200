@@ -478,10 +478,14 @@ header{
   justify-content:space-between;
   gap:16px;
   padding:20px 24px;
-  border-bottom:1px solid var(--line);
   background:rgba(255,255,255,0.9);
+  border:1px solid var(--line);
+  border-radius:24px;
+  margin:16px 20px 0;
+  width:calc(100% - 40px);
+  box-shadow:0 16px 32px rgba(15,23,42,0.1);
   position:sticky;
-  top:0;
+  top:16px;
   z-index:2;
   backdrop-filter:blur(8px);
 }
@@ -519,7 +523,12 @@ header{
     position:relative;
     height:auto;
   }
-  header{position:relative;}
+  header{
+    position:sticky;
+    top:12px;
+    margin:12px 14px 0;
+    width:calc(100% - 28px);
+  }
 }
 
 @media (max-width: 1200px){

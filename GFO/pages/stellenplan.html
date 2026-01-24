@@ -18,7 +18,7 @@
       flex-direction:column;
       gap:20px;
       width:100%;
-      max-width:1320px;
+      max-width:1200px;
       margin:0 auto;
     }
     .card{
@@ -208,6 +208,13 @@
   </style>
 </head>
 <body>
+  <main class="page-fallback">
+    <section class="card">
+      <h1>Clinicon - Stellenplan</h1>
+      <p>Inhalt wird geladen. Falls die Seite leer bleibt, ist das Layout oder ein Skript blockiert.</p>
+    </section>
+  </main>
+
   <template id="page-content">
     <section id="stellenplan-root" class="card plan-header">
       <div>
@@ -220,7 +227,7 @@
           <input id="yearInput" type="number" min="2026" max="2100" />
         </label>
         <label class="plan-field">
-          <span>Anwahlgruppe</span>
+          <span>Dienstart</span>
           <select id="dienstartSelect" class="plan-select">
             <option value="DA01">DA01</option>
             <option value="DA02">DA02</option>
@@ -362,68 +369,96 @@
     const __pageContent = document.getElementById("page-content")?.innerHTML || "";
     const __pageStyle = document.getElementById("page-style")?.textContent || "";
     const __pageTitle = document.title || "";
+    const __fallback = document.querySelector(".page-fallback");
+
+    const mountLayout = (html) => {
+      const parser = new DOMParser();
+      const layoutDoc = parser.parseFromString(html, "text/html");
+      const layoutHead = layoutDoc.head;
+      const layoutBody = layoutDoc.body;
+
+      document.head.querySelectorAll("[data-layout]").forEach((node) => node.remove());
+      Array.from(layoutHead.children).forEach((node) => {
+        if (node.tagName === "STYLE" || node.tagName === "LINK") {
+          const clone = node.cloneNode(true);
+          clone.setAttribute("data-layout", "true");
+          document.head.appendChild(clone);
+        }
+      });
+
+      document.body.innerHTML = layoutBody.innerHTML;
+
+      Array.from(layoutBody.attributes).forEach((attr) => {
+        document.body.setAttribute(attr.name, attr.value);
+      });
+
+      if (__pageStyle) {
+        const style = document.createElement("style");
+        style.setAttribute("data-page-style", "true");
+        style.textContent = __pageStyle;
+        document.head.appendChild(style);
+      }
+
+      if (__pageTitle) {
+        document.title = __pageTitle;
+        const headerTitle = document.querySelector(".topbar-left h1");
+        if (headerTitle) {
+          headerTitle.textContent = __pageTitle;
+        }
+      }
+
+      const slot = document.getElementById("app-main") || document.querySelector("main");
+      if (slot) {
+        slot.innerHTML = __pageContent;
+
+        const scripts = Array.from(slot.querySelectorAll("script"));
+        const runScripts = (index) => {
+          if (index >= scripts.length) return;
+          const oldScript = scripts[index];
+          const script = document.createElement("script");
+          Array.from(oldScript.attributes).forEach((attr) => {
+            script.setAttribute(attr.name, attr.value);
+          });
+          script.async = false;
+          if (oldScript.textContent) {
+            script.textContent = oldScript.textContent;
+          }
+          const next = () => runScripts(index + 1);
+          if (script.src) {
+            script.onload = next;
+            script.onerror = next;
+          }
+          oldScript.replaceWith(script);
+          if (!script.src) {
+            next();
+          }
+        };
+        runScripts(0);
+      }
+
+      const current = (location.pathname.split("/").pop() || "").toLowerCase();
+      document.querySelectorAll(".nav a[href]").forEach((a) => a.classList.remove("active"));
+      document.querySelectorAll(".nav a[href]").forEach((a) => {
+        const href = (a.getAttribute("href") || "").split("?")[0].split("#")[0].toLowerCase();
+        if (href && href === current) {
+          a.classList.add("active");
+        }
+      });
+    };
 
     fetch("./layout.html")
-      .then((r) => r.text())
-      .then((html) => {
-        document.open();
-        document.write(html);
-        document.close();
-
-        window.addEventListener("DOMContentLoaded", () => {
-          if (__pageStyle) {
-            const style = document.createElement("style");
-            style.setAttribute("data-page-style", "true");
-            style.textContent = __pageStyle;
-            document.head.appendChild(style);
-          }
-
-          if (__pageTitle) {
-            document.title = __pageTitle;
-            const headerTitle = document.querySelector(".topbar-left h1");
-            if (headerTitle) {
-              headerTitle.textContent = __pageTitle;
-            }
-          }
-
-          const slot = document.getElementById("app-main") || document.querySelector("main");
-          if (slot) {
-            slot.innerHTML = __pageContent;
-
-            const scripts = Array.from(slot.querySelectorAll("script"));
-            const runScripts = (index) => {
-              if (index >= scripts.length) return;
-              const oldScript = scripts[index];
-              const script = document.createElement("script");
-              Array.from(oldScript.attributes).forEach((attr) => {
-                script.setAttribute(attr.name, attr.value);
-              });
-              script.async = false;
-              if (oldScript.textContent) {
-                script.textContent = oldScript.textContent;
-              }
-              const next = () => runScripts(index + 1);
-              if (script.src) {
-                script.onload = next;
-                script.onerror = next;
-              }
-              oldScript.replaceWith(script);
-              if (!script.src) {
-                next();
-              }
-            };
-            runScripts(0);
-          }
-
-          const current = (location.pathname.split("/").pop() || "").toLowerCase();
-          document.querySelectorAll(".nav a[href]").forEach((a) => a.classList.remove("active"));
-          document.querySelectorAll(".nav a[href]").forEach((a) => {
-            const href = (a.getAttribute("href") || "").split("?")[0].split("#")[0].toLowerCase();
-            if (href && href === current) {
-              a.classList.add("active");
-            }
-          });
-        });
+      .then((r) => {
+        if (!r.ok) {
+          throw new Error(`Layout HTTP ${r.status}`);
+        }
+        return r.text();
+      })
+      .then(mountLayout)
+      .catch((err) => {
+        console.error("Layout load failed", err);
+        if (__fallback) {
+          __fallback.style.display = "block";
+        }
       });
   </script>
 </body>
