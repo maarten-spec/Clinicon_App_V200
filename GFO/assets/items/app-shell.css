@@ -128,10 +128,12 @@ body::after{
   border:1px solid transparent;
   background:linear-gradient(180deg, #ffffff, #f7f9ff);
   box-shadow:0 1px 0 rgba(14,20,43,0.05);
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  font-size:0.98rem;
+  line-height:1.2;
+  font-weight:500;
+  transition:box-shadow .18s ease, border-color .18s ease, background .18s ease;
 }
 .app-nav a:hover{
-  transform:translateY(-1px);
   border-color:rgba(28,107,255,0.25);
   box-shadow:0 10px 20px rgba(28,107,255,0.15);
 }
@@ -145,7 +147,21 @@ body::after{
   font-weight:500;
   letter-spacing:.01em;
 }
-.app-nav a svg{width:22px; height:22px}
+.app-nav a svg{
+  width:24px;
+  height:24px;
+  padding:6px;
+  border-radius:10px;
+  background:rgba(28,107,255,0.12);
+  color:#1f4b82;
+  flex-shrink:0;
+  box-shadow:inset 0 0 0 1px rgba(28,107,255,0.12);
+}
+.app-nav a.active svg{
+  background:rgba(255,255,255,0.25);
+  color:#fff;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.35);
+}
 .app-side-footer{
   margin-top:auto;
   font-size:12px;
@@ -360,7 +376,7 @@ body::after{
   text-decoration:none;
 }
 .brand img{
-  width:200px;
+  width:176px;
   max-width:100%;
   height:auto;
   object-fit:contain;
@@ -391,10 +407,12 @@ body::after{
   border:1px solid rgba(15,23,42,0.08);
   background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,249,255,0.96));
   box-shadow:0 10px 20px rgba(15,23,42,0.06);
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  font-size:0.98rem;
+  line-height:1.2;
+  font-weight:500;
+  transition:box-shadow .18s ease, border-color .18s ease, background .18s ease;
 }
 .nav a:hover{
-  transform:translateY(-1px);
   border-color:rgba(28,107,255,0.28);
   box-shadow:0 16px 30px rgba(28,107,255,0.18);
 }
@@ -409,10 +427,10 @@ body::after{
   letter-spacing:.01em;
 }
 .nav a svg{
-  width:28px;
-  height:28px;
+  width:24px;
+  height:24px;
   padding:6px;
-  border-radius:12px;
+  border-radius:10px;
   background:rgba(28,107,255,0.12);
   color:#1f4b82;
   flex-shrink:0;
@@ -449,14 +467,14 @@ body::after{
   padding:10px 14px;
 }
 .nav-sub a svg{
-  width:24px;
-  height:24px;
+  width:22px;
+  height:22px;
   padding:5px;
-  border-radius:10px;
+  border-radius:9px;
 }
 header{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:space-between;
   gap:16px;
   padding:20px 24px;

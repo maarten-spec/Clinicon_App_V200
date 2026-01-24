@@ -18,8 +18,8 @@
       flex-direction:column;
       gap:20px;
       width:100%;
-      max-width:1200px;
-      margin:0 auto;
+      max-width:none;
+      margin:0;
     }
     .card{
       background:#fff;
@@ -148,6 +148,38 @@
       background:#fff;
       font:inherit;
     }
+    .action-cell{ text-align:center; }
+    .action-grid{
+      display:grid;
+      grid-template-columns:repeat(2, 1fr);
+      gap:6px;
+      width:80px;
+      margin:0 auto;
+      align-items:center;
+      justify-items:center;
+    }
+    .action-btn{
+      width:36px;
+      height:36px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#f2f5ff;
+      color:var(--accent-blue);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition:background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .action-btn svg{ width:18px; height:18px; }
+    .action-btn:hover{
+      background:#e6eeff;
+      border-color:#c7d7ff;
+      box-shadow:0 6px 12px rgba(37,99,235,0.15);
+    }
+    .action-btn:active{ background:#d9e4ff; }
+    th.action-col{ min-width:120px; }
+    .is-hidden{ display:none; }
     .avg-cell{
       font-weight:700;
       color:#1f2a44;
@@ -169,7 +201,7 @@
     <section id="stellenplan-root" class="card plan-header">
       <div>
         <h1>Stellenplan</h1>
-        <p>Monatswerte pflegen, Ø berechnen und Summen vergleichen.</p>
+        <p>Monatswerte pflegen, &Oslash; berechnen und Summen vergleichen.</p>
       </div>
       <div class="plan-actions">
         <label>Jahr
@@ -205,6 +237,7 @@
               <td data-month-total="11">0,00</td>
               <td data-total-average>0,00</td>
               <td></td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
@@ -212,7 +245,7 @@
     </section>
 
     <section class="card">
-      <h3 class="section-title">Zusatzgruppen (Schüler:innen, Azubis, MFA/ATA ...)</h3>
+      <h3 class="section-title">Zusatzgruppen (Schueler:innen, Azubis, MFA/ATA ...)</h3>
       <div class="table-wrap">
         <table>
           <thead id="extraHead"></thead>
@@ -235,6 +268,7 @@
               <td data-month-total="11">0,00</td>
               <td data-total-average>0,00</td>
               <td></td>
+              <td></td>
             </tr>
             <tr id="sumCombinedRow">
               <td></td>
@@ -252,6 +286,7 @@
               <td data-month-total="10">0,00</td>
               <td data-month-total="11">0,00</td>
               <td data-total-average>0,00</td>
+              <td></td>
               <td></td>
             </tr>
             <tr id="planRow">
@@ -271,6 +306,7 @@
               <td data-plan-month="11">0,00</td>
               <td data-plan-average>0,00</td>
               <td></td>
+              <td></td>
             </tr>
             <tr id="planDeviationRow">
               <td></td>
@@ -288,6 +324,7 @@
               <td data-deviation-month="10">0,00</td>
               <td data-deviation-month="11">0,00</td>
               <td data-deviation-average>0,00</td>
+              <td></td>
               <td></td>
             </tr>
           </tfoot>

@@ -3,7 +3,8 @@
 
 const MONTH_LABELS = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const MONTH_COUNT = MONTH_LABELS.length;
-const DEFAULT_EXTRAS = ["Schüler:in", "Azubi", "MFA/ATA"];
+const DEFAULT_EXTRAS = ["Schueler:in", "Azubi", "MFA/ATA"];
+const EXTENSION_TARGET_YEAR = 2030;
 const API_BASE = "";
 
 const numberFormat = new Intl.NumberFormat("de-DE", {
@@ -17,6 +18,11 @@ const state = {
   employees: [],
   extras: [],
   planTargets: { months: Array(MONTH_COUNT).fill(0) }
+};
+
+const uiState = {
+  hiddenMonths: new Set(),
+  lastFocusedMonth: null
 };
 
 const selectors = {
@@ -73,8 +79,12 @@ function setStatus(message, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+function getApiBase() {
+  return (document.body && document.body.dataset && document.body.dataset.apiBase) ? document.body.dataset.apiBase : API_BASE;
+}
+
 async function fetchJson(url, options = {}) {
-  const response = await fetch(`${API_BASE}${url}`, {
+  const response = await fetch(`${getApiBase()}${url}`, {
     headers: { "content-type": "application/json" },
     ...options
   });
@@ -179,15 +189,16 @@ function buildHeaderRow(extraLabel) {
     <tr>
       <th style="min-width:160px;">Personalnummer</th>
       <th style="min-width:220px;">${extraLabel}</th>
-      ${MONTH_LABELS.map((label) => `<th>${label}</th>`).join("")}
-      <th>Ø Monat</th>
+      ${MONTH_LABELS.map((label, index) => `<th data-month-index="${index}">${label}</th>`).join("")}
+      <th>&Oslash; Monat</th>
       <th style="min-width:170px;">Qualifikation</th>
+      <th class="action-col">Aktionen</th>
     </tr>
   `;
 }
 
 function renderQualificationOptions(selectedId) {
-  const options = [`<option value="">Qualifikation wählen</option>`];
+  const options = [`<option value="">Qualifikation waehlen</option>`];
   state.qualifications.forEach((qual) => {
     const selected = String(qual.id) === String(selectedId) ? " selected" : "";
     options.push(`<option value="${qual.id}"${selected}>${qual.label}</option>`);
@@ -210,7 +221,7 @@ function renderRows(tbody, rows, type) {
       </td>
       ${MONTH_LABELS.map(
         (_, index) => `
-        <td>
+        <td data-month-cell="${index}">
           <input class="cell-input cell-input-number" data-field="month" data-month="${index}" type="number" step="0.01" value="${formatInputValue(row.months[index])}" />
         </td>`
       ).join("")}
@@ -219,6 +230,22 @@ function renderRows(tbody, rows, type) {
         <select class="cell-select" data-field="qualificationId">
           ${renderQualificationOptions(row.qualificationId)}
         </select>
+      </td>
+      <td class="action-cell">
+        <div class="action-grid">
+          <button class="action-btn" type="button" data-action="toggle-month" title="Spalte ausblenden / einblenden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button class="action-btn" type="button" data-action="delete-row" title="Zeile entfernen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
+          </button>
+          <button class="action-btn" type="button" data-action="copy-forward" title="Wert bis Jahresende fortschreiben">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>
+          </button>
+          <button class="action-btn" type="button" data-action="extend-forward" title="Fortschreibung bis ${EXTENSION_TARGET_YEAR}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="m7 6-4 6 4 6"/><path d="m17 6 4 6-4 6"/></svg>
+          </button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -328,6 +355,74 @@ function escapeHtml(value) {
 }
 
 function bindTableEvents(tbody, rows, type) {
+  tbody.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.field !== "month") return;
+    const index = Number.parseInt(target.dataset.month, 10);
+    if (Number.isFinite(index)) {
+      uiState.lastFocusedMonth = index;
+    }
+  });
+
+  tbody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const actionButton = target.closest("button[data-action]");
+    if (!actionButton) return;
+    const tr = actionButton.closest("tr");
+    if (!tr) return;
+    const row = rows.find((item) => item.uid === tr.dataset.uid);
+    if (!row) return;
+    const action = actionButton.dataset.action;
+    const focusedMonth = getFocusedMonthIndex();
+
+    if (action === "toggle-month") {
+      if (focusedMonth === null) {
+        setStatus("Bitte Monat waehlen", true);
+        return;
+      }
+      setStatus("");
+      toggleMonthVisibility(focusedMonth);
+      return;
+    }
+
+    if (action === "copy-forward") {
+      if (focusedMonth === null) {
+        setStatus("Bitte Monat waehlen", true);
+        return;
+      }
+      copyRowForward(row, focusedMonth);
+      renderAll();
+      setStatus("Wert fortgeschrieben");
+      setTimeout(() => setStatus(""), 2000);
+      return;
+    }
+
+    if (action === "extend-forward") {
+      if (focusedMonth === null) {
+        setStatus("Bitte Monat waehlen", true);
+        return;
+      }
+      extendRowForward(row, focusedMonth);
+      renderAll();
+      setStatus(`Fortschreibung bis ${EXTENSION_TARGET_YEAR} markiert`);
+      setTimeout(() => setStatus(""), 2000);
+      return;
+    }
+
+    if (action === "delete-row") {
+      const index = rows.findIndex((item) => item.uid === row.uid);
+      if (index >= 0) {
+        rows.splice(index, 1);
+      }
+      if (!rows.length) {
+        rows.push(type === "main" ? createBlankEmployee() : createBlankExtra());
+      }
+      renderAll();
+    }
+  });
+
   tbody.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) return;
@@ -373,6 +468,49 @@ function renderAll() {
   updateAverages(state.employees, employeeBody);
   updateAverages(state.extras, extraBody);
   refreshTotals();
+  applyMonthVisibility();
+}
+
+// UI helpers: column visibility + row actions.
+function applyMonthVisibility() {
+  const hiddenMonths = uiState.hiddenMonths;
+  const tables = document.querySelectorAll(".table-wrap table");
+  tables.forEach((table) => {
+    table
+      .querySelectorAll("[data-month-index],[data-month-cell],[data-month-total],[data-plan-month],[data-deviation-month]")
+      .forEach((cell) => cell.classList.remove("is-hidden"));
+    hiddenMonths.forEach((index) => {
+      table
+        .querySelectorAll(
+          `[data-month-index="${index}"],[data-month-cell="${index}"],[data-month-total="${index}"],[data-plan-month="${index}"],[data-deviation-month="${index}"]`
+        )
+        .forEach((cell) => cell.classList.add("is-hidden"));
+    });
+  });
+}
+
+function toggleMonthVisibility(index) {
+  if (!Number.isFinite(index)) return;
+  if (uiState.hiddenMonths.has(index)) {
+    uiState.hiddenMonths.delete(index);
+  } else {
+    uiState.hiddenMonths.add(index);
+  }
+  applyMonthVisibility();
+}
+
+function copyRowForward(row, startIndex) {
+  const value = normalizeNumber(row.months[startIndex]);
+  row.months = row.months.map((current, idx) => (idx >= startIndex ? value : normalizeNumber(current)));
+}
+
+function extendRowForward(row, startIndex) {
+  copyRowForward(row, startIndex);
+  row.extensionTargetYear = EXTENSION_TARGET_YEAR;
+}
+
+function getFocusedMonthIndex() {
+  return Number.isFinite(uiState.lastFocusedMonth) ? uiState.lastFocusedMonth : null;
 }
 
 function bindControls() {
