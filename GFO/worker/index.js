@@ -4,6 +4,7 @@
  *   GET  /api/stellenplan?year=YYYY
  *   POST /api/stellenplan
  *   GET  /api/stellenplan/summary?year=YYYY
+ *   GET  /api/insights?year=YYYY&month=MM
  */
 
 const MONTH_COUNT = 12;
@@ -60,6 +61,10 @@ function badRequest(message) {
   return jsonResponse({ ok: false, error: message }, 400);
 }
 
+function unauthorized() {
+  return jsonResponse({ ok: false, error: "unauthorized" }, 401);
+}
+
 function toInt(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -80,6 +85,119 @@ function normalizeNumber(value) {
 
 function buildMonthArray(seed = 0) {
   return MONTHS.map(() => seed);
+}
+
+function getAuthEmail(request) {
+  return (
+    request.headers.get("cf-access-authenticated-user-email") ||
+    request.headers.get("CF-Access-Authenticated-User-Email") ||
+    request.headers.get("x-user-email") ||
+    ""
+  ).trim();
+}
+
+async function listTenants(db) {
+  const rows = await db
+    .prepare("SELECT id, code, name FROM tenants WHERE is_active=1 ORDER BY name ASC")
+    .all();
+  return rows.results || [];
+}
+
+async function resolveTenantContext(db, request, payloadTenantId) {
+  const email = getAuthEmail(request);
+  const url = new URL(request.url);
+  const devTenantCode = normalizeText(url.searchParams.get("devTenant")).toUpperCase();
+  const allTenants = await listTenants(db);
+
+  if (!email) {
+    if (devTenantCode) {
+      const match = allTenants.find((t) => String(t.code || "").toUpperCase() === devTenantCode);
+      if (match) {
+        return {
+          email: "",
+          role: "tenant",
+          tenants: [match],
+          tenant: match
+        };
+      }
+    }
+    return {
+      email: "",
+      role: "admin",
+      tenants: allTenants,
+      tenant: allTenants[0] || null
+    };
+  }
+
+  const rows = await db
+    .prepare(
+      "SELECT tu.role, t.id, t.code, t.name " +
+        "FROM tenant_users tu JOIN tenants t ON t.id=tu.tenant_id " +
+        "WHERE tu.email=? AND tu.is_active=1 AND t.is_active=1"
+    )
+    .bind(email)
+    .all();
+
+  const results = rows.results || [];
+  if (!results.length) {
+    return { error: "unauthorized" };
+  }
+
+  const roles = new Set(results.map((row) => String(row.role || "").toLowerCase()));
+  const isAdmin = roles.has("admin");
+  const isZpd = roles.has("zpd");
+  const tenants = isAdmin || isZpd
+    ? allTenants
+    : Array.from(
+        new Map(results.map((row) => [row.id, { id: row.id, code: row.code, name: row.name }])).values()
+      );
+
+  const requestedId =
+    toInt(url.searchParams.get("tenant"), null) ||
+    toInt(url.searchParams.get("tenant_id"), null) ||
+    toInt(payloadTenantId, null);
+
+  const activeTenant = tenants.find((t) => t.id === requestedId) || tenants[0] || null;
+
+  return {
+    email,
+    role: isAdmin ? "admin" : isZpd ? "zpd" : "tenant",
+    tenants,
+    tenant: activeTenant
+  };
+}
+
+async function listDepartments(db, tenantId) {
+  if (!tenantId) return [];
+  const rows = await db
+    .prepare("SELECT id, code, name FROM departments WHERE tenant_id=? AND is_active=1 ORDER BY name ASC")
+    .bind(tenantId)
+    .all();
+  return rows.results || [];
+}
+
+async function resolveDepartment(db, request, payloadDeptId, tenantId) {
+  const url = new URL(request.url);
+  const requestedId =
+    toInt(url.searchParams.get("department"), null) ||
+    toInt(url.searchParams.get("department_id"), null) ||
+    toInt(payloadDeptId, null);
+  const departments = await listDepartments(db, tenantId);
+  const active = departments.find((d) => d.id === requestedId) || departments[0] || null;
+  return { departments, department: active };
+}
+
+function buildScopeKey(tenantId, departmentId) {
+  if (!tenantId) return DEFAULT_SCOPE;
+  return `${DEFAULT_SCOPE}:${tenantId}:${departmentId || "all"}`;
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function buildDateString(year, month) {
+  return `${year}-${pad2(month)}-01`;
 }
 
 function withCors(response) {
@@ -115,6 +233,13 @@ async function handleGetStellenplan(request, env) {
   }
 
   const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const deptContext = await resolveDepartment(db, request, null, tenantId);
+  const departmentId = deptContext.department ? deptContext.department.id : null;
 
   await ensureQualifications(db);
 
@@ -122,21 +247,48 @@ async function handleGetStellenplan(request, env) {
     .prepare("SELECT id, code, label FROM qualifications WHERE is_active=1 ORDER BY label ASC")
     .all();
 
-  const employees = await db
-    .prepare(
-      "SELECT id, personal_number, name, category, extra_category, qualification_id " +
-        "FROM employees WHERE is_active=1 ORDER BY id ASC"
-    )
+  let employeeSql =
+    "SELECT id, personal_number, name, category, extra_category, qualification_id " +
+    "FROM employees WHERE is_active=1";
+  const employeeParams = [];
+  if (tenantId) {
+    employeeSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    employeeParams.push(tenantId);
+  }
+  if (departmentId) {
+    employeeSql += " AND (department_id=? OR department_id IS NULL)";
+    employeeParams.push(departmentId);
+  }
+  employeeSql += " ORDER BY id ASC";
+  const employees = await db.prepare(employeeSql).bind(...employeeParams).all();
+
+  const optionalQualifications = await db
+    .prepare("SELECT employee_id, qualification_id FROM employee_qualifications")
     .all();
 
-  const monthValues = await db
-    .prepare("SELECT employee_id, month, value FROM employee_month_values WHERE year=?")
-    .bind(year)
-    .all();
+  const optionalMap = new Map();
+  for (const row of optionalQualifications.results || []) {
+    const list = optionalMap.get(row.employee_id) || [];
+    list.push(row.qualification_id);
+    optionalMap.set(row.employee_id, list);
+  }
 
+  let monthSql = "SELECT employee_id, month, value FROM employee_month_values WHERE year=?";
+  const monthParams = [year];
+  if (tenantId) {
+    monthSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    monthParams.push(tenantId);
+  }
+  if (departmentId) {
+    monthSql += " AND (department_id=? OR department_id IS NULL)";
+    monthParams.push(departmentId);
+  }
+  const monthValues = await db.prepare(monthSql).bind(...monthParams).all();
+
+  const scopeKey = buildScopeKey(tenantId, departmentId);
   const planTargets = await db
     .prepare("SELECT month, value, scope FROM wirtschaftsplan_targets WHERE year=? AND scope=?")
-    .bind(year, DEFAULT_SCOPE)
+    .bind(year, scopeKey)
     .all();
 
   const valueMap = new Map();
@@ -160,6 +312,7 @@ async function handleGetStellenplan(request, env) {
       name: normalizeText(row.name),
       category: normalizeText(row.extra_category),
       qualificationId: row.qualification_id || null,
+      optionalQualifications: optionalMap.get(row.id) || [],
       months
     };
     if (row.category === CATEGORY_EXTRA) {
@@ -178,17 +331,21 @@ async function handleGetStellenplan(request, env) {
   return jsonResponse({
     ok: true,
     year,
+    tenant: tenantContext.tenant,
+    tenants: tenantContext.tenants,
+    department: deptContext.department,
+    departments: deptContext.departments,
     qualifications: qualifications.results || [],
     employees: mainRows,
     extras: extraRows,
     planTargets: {
-      scope: DEFAULT_SCOPE,
+      scope: scopeKey,
       months: planMonthValues
     }
   });
 }
 
-async function resolveEmployeeId(db, row, category) {
+async function resolveEmployeeId(db, row, category, tenantId, departmentId) {
   const personalNumber = normalizeText(row.personalNumber);
   const name = normalizeText(row.name);
   const extraCategory = normalizeText(row.category);
@@ -197,44 +354,77 @@ async function resolveEmployeeId(db, row, category) {
   if (Number.isInteger(row.id)) {
     await db
       .prepare(
-        "UPDATE employees SET personal_number=?, name=?, category=?, extra_category=?, qualification_id=?, updated_at=datetime('now') WHERE id=?"
+        "UPDATE employees SET personal_number=?, name=?, category=?, extra_category=?, qualification_id=?, tenant_id=?, department_id=?, updated_at=datetime('now') WHERE id=?"
       )
-      .bind(personalNumber, name || extraCategory || "Unbenannt", category, extraCategory || null, qualificationId, row.id)
+      .bind(
+        personalNumber,
+        name || extraCategory || "Unbenannt",
+        category,
+        extraCategory || null,
+        qualificationId,
+        tenantId || null,
+        departmentId || null,
+        row.id
+      )
       .run();
     return row.id;
   }
 
   const existing = await db
     .prepare(
-      "SELECT id FROM employees WHERE personal_number=? AND name=? AND category=? AND IFNULL(extra_category,'')=?"
+      "SELECT id FROM employees WHERE personal_number=? AND name=? AND category=? AND IFNULL(extra_category,'')=? " +
+        "AND IFNULL(tenant_id,0)=IFNULL(?,0) AND IFNULL(department_id,0)=IFNULL(?,0)"
     )
-    .bind(personalNumber, name || extraCategory || "Unbenannt", category, extraCategory || "")
+    .bind(
+      personalNumber,
+      name || extraCategory || "Unbenannt",
+      category,
+      extraCategory || "",
+      tenantId || null,
+      departmentId || null
+    )
     .first();
 
   if (existing && existing.id) {
     await db
       .prepare(
-        "UPDATE employees SET qualification_id=?, updated_at=datetime('now') WHERE id=?"
+        "UPDATE employees SET qualification_id=?, tenant_id=?, department_id=?, updated_at=datetime('now') WHERE id=?"
       )
-      .bind(qualificationId, existing.id)
+      .bind(qualificationId, tenantId || null, departmentId || null, existing.id)
       .run();
     return existing.id;
   }
 
   const insert = await db
     .prepare(
-      "INSERT INTO employees (personal_number, name, category, extra_category, qualification_id) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO employees (personal_number, name, category, extra_category, qualification_id, tenant_id, department_id) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(
       personalNumber,
       name || extraCategory || "Unbenannt",
       category,
       extraCategory || null,
-      qualificationId
+      qualificationId,
+      tenantId || null,
+      departmentId || null
     )
     .run();
 
   return insert.meta.last_row_id;
+}
+
+async function saveOptionalQualifications(db, employeeId, list) {
+  await db.prepare("DELETE FROM employee_qualifications WHERE employee_id=?").bind(employeeId).run();
+  const ids = Array.isArray(list) ? list : [];
+  for (const qualificationId of ids) {
+    const parsed = Number(qualificationId);
+    if (!Number.isFinite(parsed)) continue;
+    await db
+      .prepare("INSERT INTO employee_qualifications (employee_id, qualification_id) VALUES (?, ?)")
+      .bind(employeeId, parsed)
+      .run();
+  }
 }
 
 async function handlePostStellenplan(request, env) {
@@ -253,34 +443,44 @@ async function handlePostStellenplan(request, env) {
   const planTargets = payload.planTargets || null;
 
   const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request, payload.tenantId);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const deptContext = await resolveDepartment(db, request, payload.departmentId, tenantId);
+  const departmentId = deptContext.department ? deptContext.department.id : null;
+  const scopeKey = buildScopeKey(tenantId, departmentId);
 
   // Upsert employees + month values
   for (const row of employees) {
-    const employeeId = await resolveEmployeeId(db, row, CATEGORY_MAIN);
+    const employeeId = await resolveEmployeeId(db, row, CATEGORY_MAIN, tenantId, departmentId);
+    await saveOptionalQualifications(db, employeeId, row.optionalQualifications);
     const months = Array.isArray(row.months) ? row.months : buildMonthArray(0);
     for (const month of MONTHS) {
       const value = normalizeNumber(months[month - 1] ?? 0);
       await db
         .prepare(
-          "INSERT INTO employee_month_values (employee_id, year, month, value) VALUES (?, ?, ?, ?) " +
-            "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, updated_at=datetime('now')"
+          "INSERT INTO employee_month_values (employee_id, year, month, value, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
         )
-        .bind(employeeId, year, month, value)
+        .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
         .run();
     }
   }
 
   for (const row of extras) {
-    const employeeId = await resolveEmployeeId(db, row, CATEGORY_EXTRA);
+    const employeeId = await resolveEmployeeId(db, row, CATEGORY_EXTRA, tenantId, departmentId);
+    await saveOptionalQualifications(db, employeeId, row.optionalQualifications);
     const months = Array.isArray(row.months) ? row.months : buildMonthArray(0);
     for (const month of MONTHS) {
       const value = normalizeNumber(months[month - 1] ?? 0);
       await db
         .prepare(
-          "INSERT INTO employee_month_values (employee_id, year, month, value) VALUES (?, ?, ?, ?) " +
-            "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, updated_at=datetime('now')"
+          "INSERT INTO employee_month_values (employee_id, year, month, value, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
         )
-        .bind(employeeId, year, month, value)
+        .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
         .run();
     }
   }
@@ -290,10 +490,10 @@ async function handlePostStellenplan(request, env) {
       const value = normalizeNumber(planTargets.months[month - 1] ?? 0);
       await db
         .prepare(
-          "INSERT INTO wirtschaftsplan_targets (year, month, value, scope) VALUES (?, ?, ?, ?) " +
-            "ON CONFLICT(year, month, scope) DO UPDATE SET value=excluded.value"
+          "INSERT INTO wirtschaftsplan_targets (year, month, value, scope, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?) " +
+            "ON CONFLICT(year, month, scope) DO UPDATE SET value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id"
         )
-        .bind(year, month, value, DEFAULT_SCOPE)
+        .bind(year, month, value, scopeKey, tenantId || null, departmentId || null)
         .run();
     }
   }
@@ -309,30 +509,52 @@ async function handleGetSummary(request, env) {
   }
 
   const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const deptContext = await resolveDepartment(db, request, null, tenantId);
+  const departmentId = deptContext.department ? deptContext.department.id : null;
+  const scopeKey = buildScopeKey(tenantId, departmentId);
 
-  const mainRows = await db
-    .prepare(
-      "SELECT month, SUM(value) AS total " +
-        "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
-        "WHERE v.year=? AND e.category=? GROUP BY month"
-    )
-    .bind(year, CATEGORY_MAIN)
-    .all();
+  let mainSql =
+    "SELECT month, SUM(value) AS total " +
+    "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+    "WHERE v.year=? AND e.category=?";
+  const mainParams = [year, CATEGORY_MAIN];
+  if (tenantId) {
+    mainSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+    mainParams.push(tenantId);
+  }
+  if (departmentId) {
+    mainSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+    mainParams.push(departmentId);
+  }
+  mainSql += " GROUP BY month";
+  const mainRows = await db.prepare(mainSql).bind(...mainParams).all();
 
-  const extraRows = await db
-    .prepare(
-      "SELECT month, SUM(value) AS total " +
-        "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
-        "WHERE v.year=? AND e.category=? GROUP BY month"
-    )
-    .bind(year, CATEGORY_EXTRA)
-    .all();
+  let extraSql =
+    "SELECT month, SUM(value) AS total " +
+    "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+    "WHERE v.year=? AND e.category=?";
+  const extraParams = [year, CATEGORY_EXTRA];
+  if (tenantId) {
+    extraSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+    extraParams.push(tenantId);
+  }
+  if (departmentId) {
+    extraSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+    extraParams.push(departmentId);
+  }
+  extraSql += " GROUP BY month";
+  const extraRows = await db.prepare(extraSql).bind(...extraParams).all();
 
   const planRows = await db
     .prepare(
       "SELECT month, value AS total FROM wirtschaftsplan_targets WHERE year=? AND scope=?"
     )
-    .bind(year, DEFAULT_SCOPE)
+    .bind(year, scopeKey)
     .all();
 
   const mainMonths = buildMonthArray(0);
@@ -366,6 +588,169 @@ async function handleGetSummary(request, env) {
   });
 }
 
+async function resolveInsightsMonth(db, year, monthParam) {
+  if (Number.isFinite(monthParam) && monthParam >= 1 && monthParam <= 12) {
+    return monthParam;
+  }
+  const latestActual = await db
+    .prepare("SELECT MAX(month) AS month FROM staffing_actuals WHERE year=?")
+    .bind(year)
+    .first();
+  if (latestActual && Number.isFinite(latestActual.month)) {
+    return latestActual.month;
+  }
+  const latestPlan = await db
+    .prepare("SELECT MAX(month) AS month FROM station_capacity WHERE year=?")
+    .bind(year)
+    .first();
+  if (latestPlan && Number.isFinite(latestPlan.month)) {
+    return latestPlan.month;
+  }
+  return 1;
+}
+
+async function handleGetInsights(request, env) {
+  const url = new URL(request.url);
+  const year = toInt(url.searchParams.get("year"), new Date().getFullYear());
+  if (!Number.isFinite(year)) {
+    return badRequest("Invalid year.");
+  }
+  const monthParam = toInt(url.searchParams.get("month"), null);
+  const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const month = await resolveInsightsMonth(db, year, monthParam);
+
+  const stationRows = await db
+    .prepare(
+      "SELECT s.id, s.name, s.code, s.type, " +
+        "COALESCE(cap.vk_soll, 0) AS vk_soll, " +
+        "COALESCE(act.vk_ist, 0) AS vk_ist, " +
+        "COALESCE(pp.status, 'OK') AS ppug_status, " +
+        "COALESCE(pp.ratio_actual, 0) AS ratio_actual, " +
+        "COALESCE(pp.ratio_target, 0) AS ratio_target " +
+        "FROM stations s " +
+        "LEFT JOIN station_capacity cap ON cap.station_id=s.id AND cap.year=? AND cap.month=? " +
+        "LEFT JOIN staffing_actuals act ON act.station_id=s.id AND act.year=? AND act.month=? " +
+        "LEFT JOIN ppug_status pp ON pp.station_id=s.id AND pp.year=? AND pp.month=? " +
+        "WHERE s.is_active=1 " +
+        (tenantId ? "AND (s.tenant_id=? OR s.tenant_id IS NULL) " : "") +
+        "ORDER BY s.name ASC"
+    )
+    .bind(
+      year,
+      month,
+      year,
+      month,
+      year,
+      month,
+      ...(tenantId ? [tenantId] : [])
+    )
+    .all();
+
+  const qualRows = await db.prepare("SELECT id, label FROM qualifications WHERE is_active=1").all();
+  const qualMap = new Map((qualRows.results || []).map((row) => [row.id, row.label]));
+
+  const mixRows = await db
+    .prepare(
+      "SELECT station_id, qualification_id, SUM(vk_value) AS total " +
+        "FROM station_qualification_mix WHERE year=? AND month=? " +
+        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        "GROUP BY station_id, qualification_id"
+    )
+    .bind(...[year, month, ...(tenantId ? [tenantId] : [])])
+    .all();
+
+  const mixMap = new Map();
+  for (const row of mixRows.results || []) {
+    const existing = mixMap.get(row.station_id);
+    const total = normalizeNumber(row.total);
+    if (!existing || total > existing.total) {
+      mixMap.set(row.station_id, { qualification_id: row.qualification_id, total });
+    }
+  }
+
+  const stations = (stationRows.results || []).map((row) => {
+    const vkSoll = normalizeNumber(row.vk_soll);
+    const vkIst = normalizeNumber(row.vk_ist);
+    const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
+    const mix = mixMap.get(row.id);
+    const mixLabel = mix ? (qualMap.get(mix.qualification_id) || "Qualifikation") : "Keine Angabe";
+    return {
+      station: normalizeText(row.name || row.code || "Station"),
+      beds_planned: vkSoll,
+      beds_occupied: vkIst,
+      occupancy_pct: occupancy,
+      qual_mix_label: normalizeText(mixLabel),
+      variance_hours: vkIst - vkSoll
+    };
+  });
+
+  const actualTotals = await db
+    .prepare(
+      "SELECT month, SUM(vk_ist) AS total FROM staffing_actuals WHERE year=? " +
+        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        "GROUP BY month"
+    )
+    .bind(...[year, ...(tenantId ? [tenantId] : [])])
+    .all();
+  const planTotals = await db
+    .prepare(
+      "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
+        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        "GROUP BY month"
+    )
+    .bind(...[year, ...(tenantId ? [tenantId] : [])])
+    .all();
+
+  const trendMap = new Map();
+  for (const row of planTotals.results || []) {
+    trendMap.set(row.month, {
+      month: row.month,
+      vk_soll: normalizeNumber(row.total),
+      vk_ist: 0
+    });
+  }
+  for (const row of actualTotals.results || []) {
+    const entry = trendMap.get(row.month) || { month: row.month, vk_soll: 0, vk_ist: 0 };
+    entry.vk_ist = normalizeNumber(row.total);
+    trendMap.set(row.month, entry);
+  }
+
+  const trend = Array.from(trendMap.values())
+    .sort((a, b) => a.month - b.month)
+    .map((entry) => ({
+      date: buildDateString(year, entry.month),
+      occupancy_pct: entry.vk_soll ? (entry.vk_ist / entry.vk_soll) * 100 : 0,
+      staffed_hours: entry.vk_ist,
+      required_hours: entry.vk_soll
+    }));
+
+  const response = {
+    ok: true,
+    year,
+    month,
+    tenant: tenantContext.tenant,
+    meta: {
+      updated_at: new Date().toISOString(),
+      range_label: `${year}-${pad2(month)}`,
+      source: "d1"
+    },
+    stations,
+    trend,
+    shift_mix: [
+      { label: "Frueh", value: 0 },
+      { label: "Spaet", value: 0 },
+      { label: "Nacht", value: 0 }
+    ]
+  };
+
+  return jsonResponse(response);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -384,6 +769,41 @@ export default {
 
     if (url.pathname === "/api/stellenplan/summary" && request.method === "GET") {
       return withCors(await handleGetSummary(request, env));
+    }
+
+    if (url.pathname === "/api/insights" && request.method === "GET") {
+      return withCors(await handleGetInsights(request, env));
+    }
+
+    if (url.pathname === "/api/tenants" && request.method === "GET") {
+      const db = env.DB;
+      const tenantContext = await resolveTenantContext(db, request);
+      if (tenantContext.error) {
+        return unauthorized();
+      }
+      return jsonResponse({
+        ok: true,
+        role: tenantContext.role,
+        tenants: tenantContext.tenants,
+        tenant: tenantContext.tenant
+      });
+    }
+
+    if (url.pathname === "/api/departments" && request.method === "GET") {
+      const db = env.DB;
+      const tenantContext = await resolveTenantContext(db, request);
+      if (tenantContext.error) {
+        return unauthorized();
+      }
+      const tenantId =
+        toInt(url.searchParams.get("tenant"), null) ||
+        (tenantContext.tenant ? tenantContext.tenant.id : null);
+      const departments = await listDepartments(db, tenantId);
+      return jsonResponse({
+        ok: true,
+        tenant_id: tenantId,
+        departments
+      });
     }
 
     return jsonResponse({ ok: false, error: "Not found." }, 404);

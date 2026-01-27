@@ -11,6 +11,8 @@
       --border:#e5e7eb;
       --input:#f7f9ff;
       --accent-blue:#2563eb;
+      --col-personal:110px;
+      --col-gap:8px;
     }
     main{
       padding:24px;
@@ -18,8 +20,8 @@
       flex-direction:column;
       gap:20px;
       width:100%;
-      max-width:1200px;
-      margin:0 auto;
+      max-width:none;
+      margin:0;
     }
     .card{
       background:#fff;
@@ -65,7 +67,7 @@
       border-radius:10px;
       border:1px solid var(--border);
       font:inherit;
-      width:90px;
+      width:86px;
     }
     .plan-select{
       padding:8px 10px;
@@ -74,6 +76,9 @@
       background:#fff;
       font:inherit;
       min-width:120px;
+    }
+    .plan-select.plan-station{
+      min-width:170px;
     }
     .btn{
       border:none;
@@ -115,9 +120,10 @@
       border-collapse:collapse;
       font-size:0.92rem;
       background:#fff;
+      table-layout:fixed;
     }
     th, td{
-      padding:10px 8px;
+      padding:12px 10px;
       border-bottom:1px solid var(--border);
       text-align:left;
       vertical-align:middle;
@@ -142,14 +148,85 @@
       border:1px solid var(--border);
       background:#fff;
       font:inherit;
+      box-sizing:border-box;
+      height:36px;
+      margin:0;
     }
     .cell-input-number{
       text-align:center;
+      width:calc(100% - 4px);
+      height:36px;
+      padding:6px 8px;
+      box-sizing:border-box;
+      margin:0 4px 0 0;
+    }
+    .cell-input-key{
+      width:110px;
+    }
+    .cell-input-name{
+      width:200px;
+    }
+    .col-personal{
+      width:var(--col-personal);
+      max-width:var(--col-personal);
+      padding-right:var(--col-gap);
+    }
+    .col-name{
+      width:150px;
+      max-width:150px;
+      padding-right:var(--col-gap);
+      position:relative;
+    }
+    .cell-input-name{
+      width:calc(100% - 6px);
+      margin-right:6px;
+    }
+    th[data-month-index],
+    td[data-month-cell]{
       width:64px;
+      text-align:center;
+      padding-left:6px;
+      padding-right:6px;
+    }
+    th.action-col{
+      min-width:92px;
+      text-align:right;
+      padding-right:8px;
+    }
+    th.qual-col{
+      min-width:380px;
+    }
+    th.qual-col,
+    td.qual-cell{
+      width:380px;
+    }
+    th,
+    td{
+      white-space:nowrap;
+    }
+    .col-personal,
+    .col-name{
+      white-space:normal;
+      font-size:0.78rem;
+      line-height:1.1;
+    }
+    th[data-month-index],
+    td[data-month-cell],
+    th.action-col,
+    td.action-cell{
+      white-space:nowrap;
+    }
+    td.qual-cell{
+      white-space:normal;
+      padding-right:12px;
     }
     .cell-input-key{
       background:var(--input);
       border-color:#c7d2fe;
+    }
+    .cell-input-key{
+      width:calc(100% - 6px);
+      margin-right:6px;
     }
     .cell-select{
       width:100%;
@@ -158,16 +235,235 @@
       border:1px solid var(--border);
       background:#fff;
       font:inherit;
+      box-sizing:border-box;
+      height:36px;
+      margin:0;
     }
-    .action-cell{ text-align:center; }
+    .qual-wrap{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      padding-right:10px;
+    }
+    .multi-wrap{
+      position:relative;
+      min-width:0;
+      width:100%;
+    }
+    .multi-trigger{
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:0;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#fff;
+      cursor:pointer;
+      text-align:left;
+      box-sizing:border-box;
+      min-height:75px;
+    }
+    .multi-label{
+      font-size:0.8rem;
+      font-weight:700;
+      color:#334155;
+      white-space:nowrap;
+    }
+    .multi-value{
+      flex:1;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+      min-height:20px;
+    }
+    .tag-pill{
+      max-width:100%;
+      white-space:normal;
+    }
+    .row-hidden{
+      opacity:0.55;
+    }
+    .row-hidden .cell-input,
+    .row-hidden .multi-trigger{
+      background:#f3f4f6;
+    }
+    .row-hidden-badge{
+      display:none;
+      font-size:0.8rem;
+      font-weight:700;
+      color:#4b5563;
+      background:#eef2f7;
+      border:1px dashed #cbd5f5;
+      border-radius:10px;
+      padding:4px 8px;
+      text-align:left;
+      position:absolute;
+      left:calc(-1 * (var(--col-personal) + var(--col-gap)));
+      right:0;
+      bottom:6px;
+    }
+    .row-hidden .row-hidden-badge{
+      display:inline-flex;
+    }
+    .row-hidden .col-name{
+      padding-bottom:28px;
+    }
+    .multi-caret{
+      margin-left:auto;
+      color:#64748b;
+      font-size:0.9rem;
+    }
+    .multi-panel{
+      position:absolute;
+      top:calc(100% + 6px);
+      left:0;
+      right:0;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 14px 30px rgba(15,23,42,0.12);
+      padding:10px;
+      display:none;
+      z-index:2000;
+      max-height:260px;
+      overflow:auto;
+      max-width:100%;
+    }
+    .multi-panel::-webkit-scrollbar{
+      width:6px;
+    }
+    .multi-panel::-webkit-scrollbar-thumb{
+      background:#cbd5f5;
+      border-radius:8px;
+    }
+    .multi-panel::-webkit-scrollbar-track{
+      background:transparent;
+    }
+    .multi-panel{
+      scrollbar-width:thin;
+      scrollbar-color:#cbd5f5 transparent;
+    }
+    .multi-option.required{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid #fecaca;
+      background:#fff5f5;
+    }
+    .multi-option.required input{
+      accent-color:#dc2626;
+    }
+    .multi-wrap.open .multi-trigger{
+      position:relative;
+      z-index:2001;
+    }
+    .table-wrap{
+      overflow:visible;
+    }
+    .multi-wrap.open .multi-panel{
+      display:block;
+    }
+    .multi-search{
+      padding-bottom:8px;
+      border-bottom:1px solid var(--border);
+      margin-bottom:8px;
+    }
+    .multi-search-input{
+      width:100%;
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      font:inherit;
+    }
+    .multi-group-title{
+      font-size:0.72rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:0.08em;
+      color:#64748b;
+      margin:8px 0 6px;
+    }
+    .multi-group-title.required-title{
+      color:#b91c1c;
+    }
+    .multi-group-list{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .multi-option{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      font-size:0.85rem;
+      color:#0f172a;
+    }
+    .multi-option.required{
+      color:#b91c1c;
+      font-weight:700;
+    }
+    .multi-option.required input{
+      accent-color:#ef4444;
+    }
+    .multi-option input{
+      margin-top:2px;
+    }
+    .tag-scroll{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      max-height:48px;
+      overflow:auto;
+      padding:2px 0;
+    }
+    .tag-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 8px;
+      border-radius:999px;
+      font-size:0.72rem;
+      font-weight:600;
+      background:#eef2ff;
+      color:#1e3a8a;
+      border:1px solid #c7d2fe;
+    }
+    .tag-pill.required{
+      background:rgba(239,68,68,0.08);
+      color:#b91c1c;
+      border-color:#ef4444;
+      font-weight:700;
+    }
+    .tag-empty{
+      font-size:0.75rem;
+      color:var(--muted);
+    }
+    .action-cell{
+      text-align:right;
+      padding-right:0;
+      padding-left:6px;
+    }
     .action-grid{
       display:grid;
-      grid-template-columns:repeat(2, 1fr);
+      grid-template-columns:repeat(2, 28px);
       gap:6px;
-      width:80px;
-      margin:0 auto;
+      width:62px;
+      margin-left:-6px;
       align-items:center;
       justify-items:center;
+      justify-self:start;
+    }
+    .action-grid .action-btn:nth-child(2),
+    .action-grid .action-btn:nth-child(4){
+      margin-left:10px;
+    }
+    .sollwert-cell{
+      text-align:right;
+      padding-right:8px;
     }
     .action-btn{
       width:36px;
@@ -225,6 +521,38 @@
         <label class="plan-field">
           <span>Jahr</span>
           <input id="yearInput" type="number" min="2026" max="2100" />
+        </label>
+        <label class="plan-field">
+          <span>Station</span>
+          <select id="stationSelect" class="plan-select plan-station">
+            <option value="Station 1">Station 1</option>
+            <option value="Station 2">Station 2</option>
+            <option value="Station 3">Station 3</option>
+            <option value="Station 4">Station 4</option>
+            <option value="Station 5">Station 5</option>
+            <option value="Station 6">Station 6</option>
+            <option value="Station 7">Station 7</option>
+            <option value="Station 8">Station 8</option>
+            <option value="Station 9">Station 9</option>
+            <option value="Station 10">Station 10</option>
+            <option value="Station 11">Station 11</option>
+            <option value="Station 12">Station 12</option>
+            <option value="Station 13">Station 13</option>
+            <option value="Station 14">Station 14</option>
+            <option value="Station 15">Station 15</option>
+            <option value="Station 16">Station 16</option>
+            <option value="Station 17">Station 17</option>
+            <option value="Station 18">Station 18</option>
+            <option value="Station 19">Station 19</option>
+            <option value="Station 20">Station 20</option>
+            <option value="EKG">EKG</option>
+            <option value="OP">OP</option>
+            <option value="ZNA">ZNA</option>
+            <option value="Intensivstation">Intensivstation</option>
+            <option value="Endoskopie">Endoskopie</option>
+            <option value="Radiologie">Radiologie</option>
+            <option value="Labor">Labor</option>
+          </select>
         </label>
         <label class="plan-field">
           <span>Dienstart</span>
@@ -356,6 +684,27 @@
               <td data-deviation-average>0,00</td>
               <td></td>
               <td></td>
+            </tr>
+            <tr id="sollwertRow">
+              <td></td>
+              <td>Sollwertberechnung</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td class="sollwert-cell">
+                <button class="button app-button secondary" type="button">Sollwertberechnung</button>
+              </td>
             </tr>
           </tfoot>
         </table>

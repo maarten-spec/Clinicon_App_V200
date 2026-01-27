@@ -19,7 +19,10 @@ const state = {
   employees: [],
   extras: [],
   planTargets: { months: Array(MONTH_COUNT).fill(0) },
-  dienstart: "DA03"
+  dienstart: "DA03",
+  station: "Station 1",
+  tenantId: null,
+  departmentId: null
 };
 
 const uiState = {
@@ -34,6 +37,7 @@ const selectors = {
   addExtraButton: "#btnAddExtra",
   saveStatus: "#saveStatus",
   dienstartSelect: "#dienstartSelect",
+  stationSelect: "#stationSelect",
   employeeBody: "#planBody",
   extraBody: "#extraBody",
   sumRow: "#sumRow",
@@ -87,6 +91,29 @@ function getApiBase() {
   return (document.body && document.body.dataset && document.body.dataset.apiBase) ? document.body.dataset.apiBase : API_BASE;
 }
 
+function getDevTenantParam() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("devTenant") || "";
+}
+
+function getContextIds() {
+  const body = document.body || {};
+  const tenantId =
+    body.dataset?.tenantId ||
+    sessionStorage.getItem("tenant_id") ||
+    "";
+  const departmentId =
+    body.dataset?.departmentId ||
+    sessionStorage.getItem("department_id") ||
+    "";
+  const tenant = Number.parseInt(tenantId, 10);
+  const department = Number.parseInt(departmentId, 10);
+  return {
+    tenantId: Number.isFinite(tenant) ? tenant : null,
+    departmentId: Number.isFinite(department) ? department : null
+  };
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(`${getApiBase()}${url}`, {
     headers: { "content-type": "application/json" },
@@ -100,8 +127,24 @@ async function fetchJson(url, options = {}) {
 }
 
 async function loadPlan(year) {
-  const data = await fetchJson(`/api/stellenplan?year=${encodeURIComponent(year)}`);
+  const context = getContextIds();
+  state.tenantId = context.tenantId;
+  state.departmentId = context.departmentId;
+  const params = new URLSearchParams({ year: String(year) });
+  if (context.tenantId) params.set("tenant", String(context.tenantId));
+  if (context.departmentId) params.set("department", String(context.departmentId));
+  const devTenant = getDevTenantParam();
+  if (devTenant) params.set("devTenant", devTenant);
+  const data = await fetchJson(`/api/stellenplan?${params.toString()}`);
   state.year = data.year || year;
+  if (data.tenant && data.tenant.id) {
+    state.tenantId = data.tenant.id;
+    sessionStorage.setItem("tenant_id", String(data.tenant.id));
+  }
+  if (data.department && data.department.id) {
+    state.departmentId = data.department.id;
+    sessionStorage.setItem("department_id", String(data.department.id));
+  }
   state.qualifications = Array.isArray(data.qualifications) ? data.qualifications : [];
   state.employees = (Array.isArray(data.employees) ? data.employees : []).map(normalizeEmployeeRow);
   state.extras = (Array.isArray(data.extras) ? data.extras : []).map(normalizeExtraRow);
@@ -120,7 +163,9 @@ async function savePlan() {
     year: state.year,
     employees: serializeRows(state.employees, "main"),
     extras: serializeRows(state.extras, "extra"),
-    planTargets: state.planTargets
+    planTargets: state.planTargets,
+    tenantId: state.tenantId,
+    departmentId: state.departmentId
   };
   await fetchJson("/api/stellenplan", {
     method: "POST",
@@ -129,24 +174,32 @@ async function savePlan() {
 }
 
 function normalizeEmployeeRow(row) {
+  const optional = Array.isArray(row.optionalQualifications) ? row.optionalQualifications : [];
+  const primary = row.qualificationId ? [row.qualificationId] : [];
   return {
     id: Number.isInteger(row.id) ? row.id : null,
     uid: buildUid("emp"),
     personalNumber: row.personalNumber || "",
     name: row.name || "",
     qualificationId: row.qualificationId || "",
-    months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths()
+    optionalQualifications: Array.from(new Set([...optional, ...primary])).filter(Boolean),
+    months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths(),
+    isHidden: Boolean(row.isHidden)
   };
 }
 
 function normalizeExtraRow(row) {
+  const optional = Array.isArray(row.optionalQualifications) ? row.optionalQualifications : [];
+  const primary = row.qualificationId ? [row.qualificationId] : [];
   return {
     id: Number.isInteger(row.id) ? row.id : null,
     uid: buildUid("extra"),
     personalNumber: row.personalNumber || "",
     category: row.category || "",
     qualificationId: row.qualificationId || "",
-    months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths()
+    optionalQualifications: Array.from(new Set([...optional, ...primary])).filter(Boolean),
+    months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths(),
+    isHidden: Boolean(row.isHidden)
   };
 }
 
@@ -156,7 +209,8 @@ function serializeRows(rows, type) {
     personalNumber: row.personalNumber,
     name: type === "main" ? row.name : undefined,
     category: type === "extra" ? row.category : undefined,
-    qualificationId: row.qualificationId || null,
+    qualificationId: row.optionalQualifications && row.optionalQualifications.length ? row.optionalQualifications[0] : null,
+    optionalQualifications: Array.isArray(row.optionalQualifications) ? row.optionalQualifications : [],
     months: row.months.map((value) => normalizeNumber(value))
   }));
 }
@@ -168,7 +222,9 @@ function createBlankEmployee() {
     personalNumber: "",
     name: "",
     qualificationId: "",
-    months: buildEmptyMonths()
+    optionalQualifications: [],
+    months: buildEmptyMonths(),
+    isHidden: false
   };
 }
 
@@ -179,7 +235,9 @@ function createBlankExtra(label = "") {
     personalNumber: "",
     category: label,
     qualificationId: "",
-    months: buildEmptyMonths()
+    optionalQualifications: [],
+    months: buildEmptyMonths(),
+    isHidden: false
   };
 }
 
@@ -191,14 +249,21 @@ function rowAverage(months) {
 function buildHeaderRow(extraLabel) {
   return `
     <tr>
-      <th style="min-width:160px;">Personalnummer</th>
-      <th style="min-width:220px;">${extraLabel}</th>
+      <th class="col-personal">Personalnummer</th>
+      <th class="col-name">${extraLabel}</th>
       ${MONTH_LABELS.map((label, index) => `<th data-month-index="${index}">${label}</th>`).join("")}
       <th>&Oslash; Monat</th>
-      <th style="min-width:170px;">Qualifikation</th>
+      <th class="qual-col">Qualifikation</th>
       <th class="action-col">Aktionen</th>
     </tr>
   `;
+}
+
+function isRequiredQualification(qual) {
+  const code = String(qual.code || "");
+  const label = String(qual.label || "").toLowerCase();
+  if (code.startsWith("REQ_")) return true;
+  return label === "pflegefachkraft" || label === "pflegefachassistenz" || label === "ungelernte kraft";
 }
 
 function renderQualificationOptions(selectedId) {
@@ -261,6 +326,9 @@ function renderQualificationOptions(selectedId) {
       group = groupByLabel[key] || "Weitere";
     }
 
+    if (!isRequiredQualification(qual)) {
+      return;
+    }
     const selected = String(qual.id) === String(selectedId) ? " selected" : "";
     optionsByGroup[group].push(`<option value="${qual.id}"${selected}>${label}</option>`);
   });
@@ -275,34 +343,114 @@ function renderQualificationOptions(selectedId) {
   return output.join("");
 }
 
+function renderOptionalQualificationOptions(selectedIds, rowUid) {
+  const qualifications = Array.isArray(state.qualifications) ? state.qualifications : [];
+  const selectedSet = new Set((Array.isArray(selectedIds) ? selectedIds : []).map(String));
+  const optionsByGroup = {
+    Pflichtqualifikationen: [],
+    Fachpflege: [],
+    Funktionen: [],
+    Leitung: [],
+    Akut: [],
+    Weitere: []
+  };
+
+  qualifications.forEach((qual) => {
+    const code = String(qual.code || "");
+    const label = String(qual.label || "");
+    let group = "Weitere";
+    if (code.startsWith("REQ_")) group = "Pflichtqualifikationen";
+    else if (code.startsWith("FACH_")) group = "Fachpflege";
+    else if (code.startsWith("FUNC_")) group = "Funktionen";
+    else if (code.startsWith("LEAD_")) group = "Leitung";
+    else if (code.startsWith("AKUT_")) group = "Akut";
+    else if (isRequiredQualification(qual)) group = "Pflichtqualifikationen";
+    const checked = selectedSet.has(String(qual.id)) ? " checked" : "";
+    const required = isRequiredQualification(qual);
+    const requiredClass = required ? " required" : "";
+    const inputType = required ? "radio" : "checkbox";
+    const nameAttr = required ? ` name="req-${rowUid}" data-qual-required="1"` : "";
+    optionsByGroup[group].push(
+      `<label class="multi-option${requiredClass}"><input type="${inputType}" data-qual-id="${qual.id}"${nameAttr}${checked}>${label}</label>`
+    );
+  });
+
+  const output = [];
+  const groupOrder = ["Pflichtqualifikationen", "Fachpflege", "Funktionen", "Leitung", "Akut", "Weitere"];
+  groupOrder.forEach((group) => {
+    const list = optionsByGroup[group] || [];
+    if (!list.length) return;
+    const titleClass = group === "Pflichtqualifikationen" ? " required-title" : "";
+    output.push(`<div class="multi-group"><div class="multi-group-title${titleClass}">${group}</div>`);
+    output.push(`<div class="multi-group-list">${list.join("")}</div></div>`);
+  });
+  return output.join("");
+}
+
+function renderOptionalTags(selectedIds) {
+  const qualifications = Array.isArray(state.qualifications) ? state.qualifications : [];
+  const byId = new Map(qualifications.map((q) => [String(q.id), q]));
+  const selected = Array.isArray(selectedIds) ? selectedIds.map(String) : [];
+  if (!selected.length) return "<span class=\"tag-empty\">Keine Qualifikationen</span>";
+  const required = [];
+  const optional = [];
+  selected.forEach((id) => {
+    const qual = byId.get(id);
+    if (!qual) return;
+    const label = String(qual.label || "");
+    if (isRequiredQualification(qual)) required.push(label);
+    else optional.push(label);
+  });
+  const pills = [
+    ...required.map((label) => `<span class="tag-pill required">${label}</span>`),
+    ...optional.map((label) => `<span class="tag-pill">${label}</span>`)
+  ].join("");
+  return `<div class="tag-scroll">${pills}</div>`;
+}
+
 function renderRows(tbody, rows, type) {
   tbody.innerHTML = "";
   rows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.dataset.uid = row.uid;
+    if (row.isHidden) tr.classList.add("row-hidden");
     const labelValue = type === "main" ? row.name : row.category;
     tr.innerHTML = `
-      <td>
-        <input class="cell-input cell-input-key" data-field="personalNumber" value="${escapeHtml(row.personalNumber)}" placeholder="z.B. 1001" />
-      </td>
-      <td>
-        <input class="cell-input" data-field="${type === "main" ? "name" : "category"}" value="${escapeHtml(labelValue)}" placeholder="${type === "main" ? "Mitarbeiter:in" : "Kategorie"}" />
-      </td>
+        <td class="col-personal">
+          <input class="cell-input cell-input-key" data-field="personalNumber" value="${escapeHtml(row.personalNumber)}" placeholder="z.B. 1001" />
+        </td>
+        <td class="col-name">
+          <input class="cell-input cell-input-name" data-field="${type === "main" ? "name" : "category"}" value="${escapeHtml(labelValue)}" placeholder="${type === "main" ? "Mitarbeiter:in" : "Kategorie"}" />
+          <span class="row-hidden-badge">Ausgeblendet</span>
+        </td>
       ${MONTH_LABELS.map(
         (_, index) => `
         <td data-month-cell="${index}">
-          <input class="cell-input cell-input-number" data-field="month" data-month="${index}" type="number" step="0.01" value="${formatInputValue(row.months[index])}" />
+          <input class="cell-input cell-input-number" data-field="month" data-month="${index}" type="text" inputmode="decimal" value="${formatInputValue(row.months[index])}" />
         </td>`
       ).join("")}
       <td class="avg-cell" data-avg-for="${row.uid}">${formatNumber(rowAverage(row.months))}</td>
-      <td>
-        <select class="cell-select" data-field="qualificationId">
-          ${renderQualificationOptions(row.qualificationId)}
-        </select>
-      </td>
+        <td class="qual-cell">
+          <div class="qual-wrap">
+            <div class="multi-wrap" data-multi-root="${row.uid}">
+            <button class="multi-trigger" type="button" data-action="toggle-multi">
+              <span class="multi-value">${renderOptionalTags(row.optionalQualifications)}</span>
+              <span class="multi-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="multi-panel" data-multi-panel>
+              <div class="multi-search">
+                <input type="text" class="multi-search-input" placeholder="Suche..." data-action="multi-search" />
+              </div>
+                <div class="multi-options" data-field="optionalQualifications">
+                  ${renderOptionalQualificationOptions(row.optionalQualifications, row.uid)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </td>
       <td class="action-cell">
         <div class="action-grid">
-          <button class="action-btn" type="button" data-action="toggle-month" title="Spalte ausblenden / einblenden">
+            <button class="action-btn" type="button" data-action="toggle-row" title="Zeile ausblenden / einblenden">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
           <button class="action-btn" type="button" data-action="delete-row" title="Zeile entfernen">
@@ -312,7 +460,7 @@ function renderRows(tbody, rows, type) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12"/><path d="m13 6 6 6-6 6"/></svg>
           </button>
           <button class="action-btn" type="button" data-action="extend-forward" title="Fortschreibung bis ${EXTENSION_TARGET_YEAR}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="m7 6-4 6 4 6"/><path d="m17 6 4 6-4 6"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h10"/><path d="m12 7 5 5-5 5"/><path d="m16 7 5 5-5 5"/></svg>
           </button>
         </div>
       </td>
@@ -410,8 +558,8 @@ function refreshTotals() {
 
 function formatInputValue(value) {
   const numeric = normalizeNumber(value);
-  if (Number.isNaN(numeric)) return "0";
-  return String(numeric);
+  if (!Number.isFinite(numeric)) return "0,00";
+  return numberFormat.format(numeric);
 }
 
 function escapeHtml(value) {
@@ -429,10 +577,28 @@ function bindTableEvents(tbody, rows, type) {
     if (!(target instanceof HTMLInputElement)) return;
     if (target.dataset.field !== "month") return;
     const index = Number.parseInt(target.dataset.month, 10);
-    if (Number.isFinite(index)) {
-      uiState.lastFocusedMonth = index;
-    }
+    setFocusedMonth(index);
   });
+
+  tbody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.field !== "month") return;
+    const index = Number.parseInt(target.dataset.month, 10);
+    setFocusedMonth(index);
+  });
+
+  const table = tbody.closest("table");
+  if (table) {
+    table.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const th = target.closest("[data-month-index]");
+      if (!th) return;
+      const index = Number.parseInt(th.getAttribute("data-month-index"), 10);
+      setFocusedMonth(index);
+    });
+  }
 
   tbody.addEventListener("click", (event) => {
     const target = event.target;
@@ -446,13 +612,9 @@ function bindTableEvents(tbody, rows, type) {
     const action = actionButton.dataset.action;
     const focusedMonth = getFocusedMonthIndex();
 
-    if (action === "toggle-month") {
-      if (focusedMonth === null) {
-        setStatus("Bitte Monat waehlen", true);
-        return;
-      }
-      setStatus("");
-      toggleMonthVisibility(focusedMonth);
+    if (action === "toggle-row") {
+      row.isHidden = !row.isHidden;
+      renderAll();
       return;
     }
 
@@ -515,14 +677,57 @@ function bindTableEvents(tbody, rows, type) {
     refreshTotals();
   });
 
+  tbody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const multiButton = target.closest("button[data-action=\"toggle-multi\"]");
+    if (!multiButton) return;
+    const wrapper = multiButton.closest("[data-multi-root]");
+    if (!wrapper) return;
+    wrapper.classList.toggle("open");
+  });
+
+  tbody.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.dataset.action !== "multi-search") return;
+    const wrapper = target.closest("[data-multi-root]");
+    if (!wrapper) return;
+    const query = target.value.toLowerCase();
+    wrapper.querySelectorAll(".multi-option").forEach((label) => {
+      const text = label.textContent.toLowerCase();
+      label.style.display = text.includes(query) ? "flex" : "none";
+    });
+  });
+
   tbody.addEventListener("change", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
+    if (!(target instanceof Element)) return;
     const tr = target.closest("tr");
     if (!tr) return;
     const row = rows.find((item) => item.uid === tr.dataset.uid);
     if (!row) return;
-    row.qualificationId = target.value;
+    if (target instanceof HTMLInputElement && target.matches("[data-qual-id]")) {
+      const input = target;
+      const id = String(input.dataset.qualId || "");
+      const current = new Set((row.optionalQualifications || []).map(String));
+      const isRequired = input.dataset.qualRequired === "1";
+      if (isRequired && input.checked) {
+        const requiredIds = new Set(
+          (state.qualifications || [])
+            .filter((qual) => isRequiredQualification(qual))
+            .map((qual) => String(qual.id))
+        );
+        requiredIds.forEach((reqId) => current.delete(reqId));
+        current.add(id);
+      } else if (!isRequired) {
+        if (input.checked) current.add(id);
+        else current.delete(id);
+      }
+      row.optionalQualifications = Array.from(current);
+      row.qualificationId = row.optionalQualifications.length ? row.optionalQualifications[0] : "";
+      renderAll();
+    }
   });
 }
 
@@ -568,6 +773,12 @@ function toggleMonthVisibility(index) {
   applyMonthVisibility();
 }
 
+function setFocusedMonth(index) {
+  if (Number.isFinite(index)) {
+    uiState.lastFocusedMonth = index;
+  }
+}
+
 function copyRowForward(row, startIndex) {
   const value = normalizeNumber(row.months[startIndex]);
   row.months = row.months.map((current, idx) => (idx >= startIndex ? value : normalizeNumber(current)));
@@ -582,7 +793,7 @@ function getFocusedMonthIndex() {
   return Number.isFinite(uiState.lastFocusedMonth) ? uiState.lastFocusedMonth : null;
 }
 
-function bindControls() {
+async function bindControls() {
   const yearInput = $(selectors.yearInput);
   if (yearInput) {
     yearInput.value = state.year;
@@ -616,6 +827,34 @@ function bindControls() {
     });
   }
 
+    const stationSelect = $(selectors.stationSelect);
+    if (stationSelect) {
+      const ctx = getContextIds();
+      if (ctx.tenantId) {
+        try {
+          const deptData = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
+          const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
+          if (departments.length) {
+            stationSelect.innerHTML = departments
+              .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
+              .join("");
+            const selected = ctx.departmentId || departments[0].id;
+            stationSelect.value = String(selected);
+            state.departmentId = selected;
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      stationSelect.addEventListener("change", () => {
+        const selectedId = Number.parseInt(stationSelect.value, 10);
+        if (Number.isFinite(selectedId)) {
+          sessionStorage.setItem("department_id", String(selectedId));
+        }
+        window.location.reload();
+      });
+    }
+
   const saveButton = $(selectors.saveButton);
   if (saveButton) {
     saveButton.addEventListener("click", async () => {
@@ -646,7 +885,7 @@ async function init() {
   const extraBody = $(selectors.extraBody);
   if (employeeBody) bindTableEvents(employeeBody, state.employees, "main");
   if (extraBody) bindTableEvents(extraBody, state.extras, "extra");
-  bindControls();
+  await bindControls();
 }
 
 if (document.getElementById("stellenplan-root")) {

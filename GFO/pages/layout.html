@@ -175,6 +175,40 @@
     gap:10px;
     flex-wrap:wrap;
   }
+  .tenant-controls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 10px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    box-shadow:var(--shadow-soft);
+  }
+  .tenant-controls.hidden{
+    display:none;
+  }
+  .tenant-label{
+    font-size:.78rem;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .tenant-value{
+    font-size:.86rem;
+    font-weight:700;
+    color:var(--ink);
+    padding:4px 8px;
+    border-radius:10px;
+    background:var(--surface-2);
+  }
+  .tenant-select{
+    min-width:160px;
+    padding:6px 8px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#fff;
+    font:inherit;
+  }
   .pill{
     display:inline-flex;
     align-items:center;
@@ -556,6 +590,13 @@
           <p>Farbiges KPI-Dashboard mit Demo-Daten fuer erste Tests.</p>
         </div>
         <div class="topbar-actions app-actions" data-app-actions>
+          <div class="tenant-controls hidden" data-tenant-controls>
+            <span class="tenant-label">Mandant</span>
+            <select id="tenantSelect" class="tenant-select"></select>
+            <span id="tenantLabel" class="tenant-value" style="display:none;"></span>
+            <span class="tenant-label">Abteilung</span>
+            <select id="departmentSelect" class="tenant-select"></select>
+          </div>
           <span class="pill app-pill" id="dataRange">Zeitraum: Demo</span>
           <span class="timestamp-pill" data-app-timestamp></span>
           <button class="button app-button secondary" id="refreshButton" type="button">Aktualisieren</button>
@@ -572,7 +613,88 @@
   </div>
 
   
-  
+  <script>
+    (async () => {
+      const apiBase = document.body.dataset.apiBase || "";
+      const controls = document.querySelector("[data-tenant-controls]");
+      const tenantSelect = document.getElementById("tenantSelect");
+      const departmentSelect = document.getElementById("departmentSelect");
+      const tenantLabel = document.getElementById("tenantLabel");
+      if (!controls || !tenantSelect || !departmentSelect) return;
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const devTenant = urlParams.get("devTenant");
+        const tenantUrl = devTenant ? `${apiBase}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${apiBase}/api/tenants`;
+        const tenantRes = await fetch(tenantUrl, { headers: { Accept: "application/json" } });
+        if (!tenantRes.ok) return;
+        const tenantData = await tenantRes.json();
+        const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
+        const role = tenantData.role || "tenant";
+        const showTenant = role === "admin" || role === "zpd";
+
+        const storedTenant = Number.parseInt(sessionStorage.getItem("tenant_id"), 10);
+        const activeTenantId = Number.isFinite(storedTenant)
+          ? storedTenant
+          : (tenantData.tenant && tenantData.tenant.id) ? tenantData.tenant.id : (tenants[0] && tenants[0].id);
+
+        tenantSelect.innerHTML = tenants
+          .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
+          .join("");
+        if (activeTenantId) {
+          tenantSelect.value = String(activeTenantId);
+          document.body.dataset.tenantId = String(activeTenantId);
+        }
+
+        const deptUrl = `${apiBase}/api/departments?tenant=${activeTenantId || ""}${devTenant ? `&devTenant=${encodeURIComponent(devTenant)}` : ""}`;
+        const deptRes = await fetch(deptUrl, {
+          headers: { Accept: "application/json" }
+        });
+        const deptData = deptRes.ok ? await deptRes.json() : { departments: [] };
+        const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
+        const storedDept = Number.parseInt(sessionStorage.getItem("department_id"), 10);
+        const activeDeptId = Number.isFinite(storedDept)
+          ? storedDept
+          : (departments[0] && departments[0].id);
+
+        departmentSelect.innerHTML = departments
+          .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
+          .join("");
+        if (activeDeptId) {
+          departmentSelect.value = String(activeDeptId);
+          document.body.dataset.departmentId = String(activeDeptId);
+        }
+
+        controls.classList.remove("hidden");
+        if (!showTenant) {
+          tenantSelect.style.display = "none";
+          if (tenantLabel && activeTenantId) {
+            const activeTenant = tenants.find((t) => t.id === activeTenantId);
+            tenantLabel.textContent = activeTenant ? (activeTenant.name || activeTenant.code) : "";
+            tenantLabel.style.display = "inline-flex";
+          }
+        } else if (tenantLabel) {
+          tenantLabel.style.display = "none";
+        }
+
+        if (showTenant) {
+          tenantSelect.addEventListener("change", () => {
+            sessionStorage.setItem("tenant_id", tenantSelect.value);
+            sessionStorage.removeItem("department_id");
+            window.location.reload();
+          });
+        }
+
+        departmentSelect.addEventListener("change", () => {
+          sessionStorage.setItem("department_id", departmentSelect.value);
+          window.location.reload();
+        });
+      } catch (err) {
+        // ignore
+      }
+    })();
+  </script>
+
 <script>
   (() => {
     const stamp = document.querySelector('[data-app-timestamp]');

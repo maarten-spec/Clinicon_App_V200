@@ -74,9 +74,10 @@ main{padding:24px;display:flex;flex-direction:column;gap:20px;width:100%;max-wid
     .pill-new .label{color:var(--muted);font-size:0.9rem;}
     .pill-new .value{font-weight:700;}
     .pill-new .badge{padding:2px 8px;border-radius:999px;border:1px solid var(--line);font-size:0.78rem;}
-    .badge.ok{color:#16a34a;border-color:#16a34a;}
-    .badge.warn{color:#d97706;border-color:#d97706;}
-    .badge.danger{color:#b91c1c;border-color:#b91c1c;}
+      .badge.ok{color:#16a34a;border-color:#16a34a;}
+      .badge.warn{color:#d97706;border-color:#d97706;}
+      .badge.danger{color:#b91c1c;border-color:#b91c1c;}
+      .badge.neutral{color:#1c6bff;border-color:#1c6bff;}
     .donut-grid{display:flex;flex-wrap:wrap;gap:12px;}
     .donut-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;box-shadow:0 10px 22px rgba(15,23,42,0.07);display:flex;gap:10px;align-items:center;min-width:240px;}
     .donut{position:relative;width:82px;height:82px;border-radius:50%;background:conic-gradient(#22c55e var(--pfk-angle,180deg), #3b82f6 var(--pfk-angle,180deg) 360deg);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 10px #fff;}
@@ -521,9 +522,10 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     font-weight:700;
     font-size:.75rem;
   }
-  .insights-tab .status-ok{background:rgba(47,191,113,0.15); color:#168a4a;}
-  .insights-tab .status-warn{background:rgba(255,159,28,0.2); color:#b45309;}
-  .insights-tab .status-bad{background:rgba(239,71,111,0.2); color:#b91c1c;}
+    .insights-tab .status-ok{background:rgba(47,191,113,0.15); color:#168a4a;}
+    .insights-tab .status-warn{background:rgba(255,159,28,0.2); color:#b45309;}
+    .insights-tab .status-bad{background:rgba(239,71,111,0.2); color:#b91c1c;}
+    .insights-tab .status-neutral{background:rgba(28,107,255,0.12); color:#1c6bff;}
   .insights-tab .table-grid{
     display:grid;
     grid-template-columns:2fr 1fr;
@@ -566,8 +568,9 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     font-size:.75rem;
   }
   .insights-tab .badge.ok{background:rgba(47,191,113,0.15); color:#168a4a;}
-  .insights-tab .badge.warn{background:rgba(255,159,28,0.2); color:#b45309;}
-  .insights-tab .badge.bad{background:rgba(239,71,111,0.2); color:#b91c1c;}
+    .insights-tab .badge.warn{background:rgba(255,159,28,0.2); color:#b45309;}
+    .insights-tab .badge.bad{background:rgba(239,71,111,0.2); color:#b91c1c;}
+    .insights-tab .badge.neutral{background:rgba(28,107,255,0.12); color:#1c6bff;}
   .insights-tab .spotlight{
     display:grid;
     gap:12px;
@@ -636,13 +639,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         <section class="hero insights-hero" data-tabs="insights">
           <div>
             <h2>Live-Visualisierung fuer den Stellenplan</h2>
-            <p>Dieses Cockpit kombiniert Auslastung, PPUG-Status und Personalabweichung in einem interaktiven Ueberblick. Die Daten werden aktuell aus einem Demo-Datensatz geladen und sind bereit fuer die D1-Anbindung.</p>
+            <p>Dieses Cockpit kombiniert Auslastung, Qualifikationsmix und Personalabweichung in einem interaktiven Ueberblick. Die Daten werden aktuell aus einem Demo-Datensatz geladen und sind bereit fuer die D1-Anbindung.</p>
           </div>
           <div class="hero-cards">
-            <div class="hero-card">
-              <strong id="heroBeds">--</strong>
-              <span>Belegte Betten gesamt</span>
-            </div>
+              <div class="hero-card">
+                <strong id="heroBeds">--</strong>
+                <span>VK Gesamt Haus IST</span>
+              </div>
             <div class="hero-card">
               <strong id="heroOccupancy">--</strong>
               <span>Auslastung ueber alle Stationen</span>
@@ -694,24 +697,24 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
         <div class="insights-tab" data-tabs="insights">
         <section class="kpi-grid">
-          <div class="kpi-card kpi-tone-teal">
-            <h4>Belegte Betten</h4>
-            <div class="kpi-value" id="kpiBeds">--</div>
-            <div class="kpi-sub" id="kpiBedsSub">Planbetten: --</div>
-            <div class="kpi-progress"><span id="kpiBedsProgress"></span></div>
-          </div>
+            <div class="kpi-card kpi-tone-teal">
+              <h4>VK Gesamt Haus IST</h4>
+              <div class="kpi-value" id="kpiBeds">--</div>
+              <div class="kpi-sub" id="kpiBedsSub">VK Gesamt Haus SOLL: --</div>
+              <div class="kpi-progress"><span id="kpiBedsProgress"></span></div>
+            </div>
           <div class="kpi-card">
             <h4>Auslastung</h4>
             <div class="kpi-value" id="kpiOccupancy">--</div>
             <div class="kpi-sub" id="kpiOccupancySub">Trend: --</div>
             <div class="kpi-progress"><span id="kpiOccupancyProgress"></span></div>
           </div>
-          <div class="kpi-card kpi-tone-orange">
-            <h4>PPUG Verstoesse</h4>
-            <div class="kpi-value" id="kpiViolations">--</div>
-            <div class="kpi-sub" id="kpiViolationsSub">Stationen in Pruefung</div>
-            <div class="kpi-progress"><span id="kpiViolationsProgress"></span></div>
-          </div>
+            <div class="kpi-card kpi-tone-orange">
+              <h4>Qualifikationsmix offen</h4>
+              <div class="kpi-value" id="kpiViolations">--</div>
+              <div class="kpi-sub" id="kpiViolationsSub">Ohne Qualifikationsmix</div>
+              <div class="kpi-progress"><span id="kpiViolationsProgress"></span></div>
+            </div>
           <div class="kpi-card kpi-tone-red">
             <h4>Personalabweichung</h4>
             <div class="kpi-value" id="kpiVariance">--</div>
@@ -743,7 +746,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         <section class="grid-three">
           <div class="card">
             <div class="card-header">
-              <h3>PPUG Statusmix</h3>
+              <h3>Qualifikationsmix</h3>
               <span class="card-sub">Alle Stationen</span>
             </div>
             <div class="chart-wrap small">
@@ -780,7 +783,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                 <span class="status-pill status-warn" id="kpiShiftBalance">Warnung</span>
               </div>
               <div class="status-item">
-                <span>PPUG Risiko</span>
+                <span>Quali-Mix offen</span>
                 <span class="status-pill status-bad" id="kpiRisk">Hoch</span>
               </div>
             </div>
@@ -798,10 +801,10 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                 <thead>
                   <tr>
                     <th>Station</th>
-                    <th>Planbetten</th>
-                    <th>Belegt</th>
+                      <th>VK Gesamt Haus SOLL</th>
+                      <th>VK Gesamt Haus IST</th>
                     <th>Auslastung</th>
-                    <th>PPUG</th>
+                      <th>Qualifikationsmix</th>
                     <th>Abw. Std</th>
                   </tr>
                 </thead>
@@ -820,17 +823,17 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                 <strong id="spotlightOccupancy">--</strong>
               </div>
               <div class="spotlight-tile">
-                <span>PPUG Status</span>
+                  <span>Qualifikationsmix</span>
                 <strong id="spotlightStatus">--</strong>
               </div>
               <div class="spotlight-tile">
-                <span>Planbetten</span>
+                  <span>VK Gesamt Haus SOLL</span>
                 <strong id="spotlightPlanned">--</strong>
               </div>
-              <div class="spotlight-tile">
-                <span>Belegt</span>
-                <strong id="spotlightOccupied">--</strong>
-              </div>
+                <div class="spotlight-tile">
+                  <span>VK Gesamt Haus IST</span>
+                  <strong id="spotlightOccupied">--</strong>
+                </div>
             </div>
             <div class="spotlight-tile">
               <span>Personalabweichung</span>
@@ -1781,16 +1784,16 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       { date: "2026-01-04", occupancy_pct: 83, staffed_hours: 326, required_hours: 339 },
       { date: "2026-01-05", occupancy_pct: 87, staffed_hours: 336, required_hours: 340 }
     ],
-    stations: [
-      { station: "ITS", beds_planned: 13, beds_occupied: 12, occupancy_pct: 92.3, ppug_status: "OK", variance_hours: -8.0 },
-      { station: "IMC", beds_planned: 10, beds_occupied: 9, occupancy_pct: 90.0, ppug_status: "WARN", variance_hours: -18.5 },
-      { station: "UC", beds_planned: 20, beds_occupied: 14, occupancy_pct: 70.0, ppug_status: "OK", variance_hours: 5.0 },
-      { station: "Ortho", beds_planned: 28, beds_occupied: 23, occupancy_pct: 82.1, ppug_status: "VIOLATION", variance_hours: -22.0 },
-      { station: "Kardiologie", beds_planned: 18, beds_occupied: 15, occupancy_pct: 83.3, ppug_status: "OK", variance_hours: -4.0 },
-      { station: "Neuro", beds_planned: 16, beds_occupied: 13, occupancy_pct: 81.2, ppug_status: "WARN", variance_hours: -9.5 },
-      { station: "Geriatrie", beds_planned: 22, beds_occupied: 20, occupancy_pct: 90.9, ppug_status: "OK", variance_hours: 2.5 },
-      { station: "Chirurgie", beds_planned: 24, beds_occupied: 17, occupancy_pct: 70.8, ppug_status: "OK", variance_hours: 6.0 }
-    ],
+      stations: [
+        { station: "ITS", beds_planned: 13, beds_occupied: 12, occupancy_pct: 92.3, qual_mix_label: "Pflegefachkraft", variance_hours: -8.0 },
+        { station: "IMC", beds_planned: 10, beds_occupied: 9, occupancy_pct: 90.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -18.5 },
+        { station: "UC", beds_planned: 20, beds_occupied: 14, occupancy_pct: 70.0, qual_mix_label: "Pflegefachkraft", variance_hours: 5.0 },
+        { station: "Ortho", beds_planned: 28, beds_occupied: 23, occupancy_pct: 82.1, qual_mix_label: "Fachpflegekraft OP", variance_hours: -22.0 },
+        { station: "Kardiologie", beds_planned: 18, beds_occupied: 15, occupancy_pct: 83.3, qual_mix_label: "Pflegefachkraft", variance_hours: -4.0 },
+        { station: "Neuro", beds_planned: 16, beds_occupied: 13, occupancy_pct: 81.2, qual_mix_label: "Pflegefachassistenz", variance_hours: -9.5 },
+        { station: "Geriatrie", beds_planned: 22, beds_occupied: 20, occupancy_pct: 90.9, qual_mix_label: "Pflegefachkraft", variance_hours: 2.5 },
+        { station: "Chirurgie", beds_planned: 24, beds_occupied: 17, occupancy_pct: 70.8, qual_mix_label: "Fachpflegekraft OP", variance_hours: 6.0 }
+      ],
     shift_mix: [
       { label: "Frueh", value: 42 },
       { label: "Spaet", value: 34 },
@@ -1848,23 +1851,21 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   let selectedStation = null;
 
   function computeKpis(stations) {
-    const bedsPlanned = stations.reduce((sum, row) => sum + row.beds_planned, 0);
-    const bedsOccupied = stations.reduce((sum, row) => sum + row.beds_occupied, 0);
-    const occupancy = bedsPlanned ? (bedsOccupied / bedsPlanned) * 100 : 0;
-    const variance = stations.reduce((sum, row) => sum + row.variance_hours, 0);
-    const violations = stations.filter((row) => row.ppug_status === "VIOLATION").length;
-    return { bedsPlanned, bedsOccupied, occupancy, variance, violations };
-  }
-
-  function buildStatusCounts(stations) {
-    return stations.reduce(
-      (acc, row) => {
-        acc[row.ppug_status] += 1;
+      const bedsPlanned = stations.reduce((sum, row) => sum + row.beds_planned, 0);
+      const bedsOccupied = stations.reduce((sum, row) => sum + row.beds_occupied, 0);
+      const occupancy = bedsPlanned ? (bedsOccupied / bedsPlanned) * 100 : 0;
+      const variance = stations.reduce((sum, row) => sum + row.variance_hours, 0);
+      const missingMix = stations.filter((row) => !row.qual_mix_label || row.qual_mix_label === "Keine Angabe").length;
+      return { bedsPlanned, bedsOccupied, occupancy, variance, violations: missingMix };
+    }
+  
+    function buildMixCounts(stations) {
+      return stations.reduce((acc, row) => {
+        const label = row.qual_mix_label || "Keine Angabe";
+        acc[label] = (acc[label] || 0) + 1;
         return acc;
-      },
-      { OK: 0, WARN: 0, VIOLATION: 0 }
-    );
-  }
+      }, {});
+    }
 
   function renderKpis(data) {
     const kpis = computeKpis(data.stations);
@@ -1873,7 +1874,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     elements.heroVariance.textContent = fmtNumber.format(kpis.variance);
 
     elements.kpiBeds.textContent = fmtInt.format(kpis.bedsOccupied);
-    elements.kpiBedsSub.textContent = "Planbetten: " + fmtInt.format(kpis.bedsPlanned);
+      elements.kpiBedsSub.textContent = "VK Gesamt Haus SOLL: " + fmtInt.format(kpis.bedsPlanned);
     elements.kpiBedsProgress.style.width = Math.min(100, kpis.occupancy).toFixed(1) + "%";
 
     const trendDelta = data.trend.length > 1 ? data.trend[data.trend.length - 1].occupancy_pct - data.trend[0].occupancy_pct : 0;
@@ -1882,19 +1883,19 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     elements.kpiOccupancyProgress.style.width = Math.min(100, kpis.occupancy).toFixed(1) + "%";
 
     elements.kpiViolations.textContent = fmtInt.format(kpis.violations);
-    elements.kpiViolationsSub.textContent = "Stationen in Pruefung";
+      elements.kpiViolationsSub.textContent = "Ohne Qualifikationsmix";
     elements.kpiViolationsProgress.style.width = Math.min(100, (kpis.violations / data.stations.length) * 100).toFixed(1) + "%";
 
     elements.kpiVariance.textContent = fmtNumber.format(kpis.variance);
     elements.kpiVarianceSub.textContent = kpis.variance >= 0 ? "Ueberdeckung" : "Unterdeckung";
     elements.kpiVarianceProgress.style.width = Math.min(100, Math.abs(kpis.variance) * 2.5).toFixed(1) + "%";
   }
-  function statusBadge(status) {
-    const span = document.createElement("span");
-    span.className = "badge " + (status === "OK" ? "ok" : status === "WARN" ? "warn" : "bad");
-    span.textContent = status === "OK" ? "OK" : status === "WARN" ? "Warn" : "Risiko";
-    return span;
-  }
+  function mixBadge(label) {
+      const span = document.createElement("span");
+      span.className = "badge neutral";
+      span.textContent = label || "Keine Angabe";
+      return span;
+    }
 
   function renderTable(stations) {
     elements.stationsTable.innerHTML = "";
@@ -1911,7 +1912,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           ${fmtNumber.format(row.variance_hours)}
         </td>
       `;
-      tr.querySelector(".status-cell").appendChild(statusBadge(row.ppug_status));
+      tr.querySelector(".status-cell").appendChild(mixBadge(row.qual_mix_label));
       tr.addEventListener("click", () => selectStation(row.station));
       elements.stationsTable.appendChild(tr);
     });
@@ -1926,27 +1927,27 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     });
     elements.spotlightStation.textContent = station.station;
     elements.spotlightOccupancy.textContent = fmtNumber.format(station.occupancy_pct) + "%";
-    elements.spotlightStatus.textContent = station.ppug_status;
+      elements.spotlightStatus.textContent = station.qual_mix_label || "Keine Angabe";
     elements.spotlightPlanned.textContent = fmtInt.format(station.beds_planned);
     elements.spotlightOccupied.textContent = fmtInt.format(station.beds_occupied);
     elements.spotlightVariance.textContent = fmtNumber.format(station.variance_hours);
     elements.spotlightVarianceLabel.textContent = station.variance_hours >= 0 ? "Ueberdeckung" : "Unterdeckung";
   }
 
-  function renderStatusList(statusCounts) {
-    elements.statusList.innerHTML = "";
-    const items = [
-      { label: "OK", value: statusCounts.OK, className: "status-ok" },
-      { label: "Warn", value: statusCounts.WARN, className: "status-warn" },
-      { label: "Risiko", value: statusCounts.VIOLATION, className: "status-bad" }
-    ];
-    items.forEach((item) => {
-      const row = document.createElement("div");
-      row.className = "status-item";
-      row.innerHTML = `<span>${item.label}</span><span class="status-pill ${item.className}">${fmtInt.format(item.value)}</span>`;
-      elements.statusList.appendChild(row);
-    });
-  }
+  function renderStatusList(mixCounts) {
+      elements.statusList.innerHTML = "";
+      const items = Object.entries(mixCounts)
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 3)
+        .map((item) => ({ ...item, className: "status-neutral" }));
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "status-item";
+        row.innerHTML = `<span>${item.label}</span><span class="status-pill ${item.className}">${fmtInt.format(item.value)}</span>`;
+        elements.statusList.appendChild(row);
+      });
+    }
 
   function setShiftMix(shiftMix) {
     const find = (label) => shiftMix.find((entry) => entry.label === label)?.value || 0;
@@ -2036,7 +2037,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     });
 
     const statusCtx = document.getElementById("statusChart");
-    const statusCounts = buildStatusCounts(data.stations);
+    const statusCounts = buildMixCounts(data.stations);
     charts.status = new Chart(statusCtx, {
       type: "doughnut",
       data: {
@@ -2101,7 +2102,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     charts.topStations.data.datasets[0].data = data.stations.map((row) => row.occupancy_pct);
     updateTopChart();
 
-    const statusCounts = buildStatusCounts(data.stations);
+    const statusCounts = buildMixCounts(data.stations);
     charts.status.data.datasets[0].data = [statusCounts.OK, statusCounts.WARN, statusCounts.VIOLATION];
     charts.status.update();
 
@@ -2114,7 +2115,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     renderKpis({ ...data, stations: currentStations });
     renderTable(currentStations);
     selectStation(currentStations[0].station);
-    const statusCounts = buildStatusCounts(currentStations);
+    const statusCounts = buildMixCounts(currentStations);
     renderStatusList(statusCounts);
     setShiftMix(data.shift_mix);
     updateCharts({ ...data, stations: currentStations });
@@ -2128,11 +2129,18 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     elements.dataNote.textContent = "Datenquelle: " + (data.meta.source || "demo") + ". Zuletzt aktualisiert: " + data.meta.updated_at;
   }
 
-  async function loadInsights() {
-    const apiBase = document.body.dataset.apiBase || "";
-    const endpoint = apiBase + "/api/insights";
-    try {
-      const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+    async function loadInsights() {
+      const apiBase = document.body.dataset.apiBase || "";
+      const params = new URLSearchParams();
+      const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+      const departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
+      const devTenant = new URLSearchParams(window.location.search).get("devTenant") || "";
+      if (tenantId) params.set("tenant", tenantId);
+      if (departmentId) params.set("department", departmentId);
+      if (devTenant) params.set("devTenant", devTenant);
+      const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
+      try {
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
       if (!response.ok) {
         throw new Error("API error");
       }
