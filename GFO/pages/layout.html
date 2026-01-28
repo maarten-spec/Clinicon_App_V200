@@ -634,7 +634,10 @@
           const segments = window.location.pathname.split("/").filter(Boolean);
           if (!segments.length) return "";
           const maybeTenant = segments[0];
-          return normalizeTenantKey(maybeTenant);
+          const reserved = new Set(["pages", "assets", "api", "cdn-cgi"]);
+          const normalized = normalizeTenantKey(maybeTenant);
+          if (!normalized || reserved.has(normalized)) return "";
+          return normalized;
         };
         const buildTenantSlug = (code) => normalizeTenantKey(code);
         const urlParams = new URLSearchParams(window.location.search);
