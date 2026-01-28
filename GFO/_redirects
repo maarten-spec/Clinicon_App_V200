@@ -1,0 +1,2 @@
+/:tenant/pages/*  /pages/:splat  200
+/:tenant/assets/* /assets/:splat 200
