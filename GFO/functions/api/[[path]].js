@@ -6,10 +6,28 @@ export async function onRequest({ request, params }) {
   target.search = url.search;
 
   const headers = new Headers(request.headers);
-  const accessEmail =
+  let accessEmail =
     headers.get("cf-access-authenticated-user-email") ||
     headers.get("CF-Access-Authenticated-User-Email") ||
     "";
+
+  if (!accessEmail) {
+    try {
+      const identityRes = await fetch("https://app.clinicon.de/cdn-cgi/access/get-identity", {
+        headers: {
+          cookie: request.headers.get("cookie") || "",
+          "user-agent": request.headers.get("user-agent") || ""
+        }
+      });
+      if (identityRes.ok) {
+        const identity = await identityRes.json();
+        accessEmail = identity && identity.email ? String(identity.email) : "";
+      }
+    } catch (err) {
+      // ignore
+    }
+  }
+
   if (accessEmail) {
     headers.set("x-user-email", accessEmail);
   }
