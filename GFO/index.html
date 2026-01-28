@@ -7,8 +7,35 @@
   <title>Clinicon Suite - Weiterleitung</title>
   <script>
     (function(){
-      const target = "pages/start.html" + (window.location.search || "") + (window.location.hash || "");
-      window.location.replace(target);
+      const API_BASE = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const normalizeTenant = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const fallbackTarget = "pages/start.html" + (window.location.search || "") + (window.location.hash || "");
+
+      const redirectToTenant = async () => {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const devTenant = params.get("devTenant");
+          const tenantUrl = devTenant
+            ? `${API_BASE}/api/tenants?devTenant=${encodeURIComponent(devTenant)}`
+            : `${API_BASE}/api/tenants`;
+          const res = await fetch(tenantUrl, { headers: { Accept: "application/json" } });
+          if (!res.ok) throw new Error("tenant fetch failed");
+          const data = await res.json();
+          const tenants = Array.isArray(data.tenants) ? data.tenants : [];
+          const storedTenant = Number.parseInt(sessionStorage.getItem("tenant_id"), 10);
+          const activeTenant = Number.isFinite(storedTenant)
+            ? tenants.find((t) => t.id === storedTenant)
+            : (data.tenant || tenants[0]);
+          const code = activeTenant ? (activeTenant.code || activeTenant.name) : "";
+          const slug = normalizeTenant(code);
+          if (!slug) throw new Error("no tenant slug");
+          const target = `/${slug}/pages/start.html${window.location.search || ""}${window.location.hash || ""}`;
+          window.location.replace(target);
+        } catch (err) {
+          window.location.replace(fallbackTarget);
+        }
+      };
+      redirectToTenant();
     })();
   </script>
   <style>
