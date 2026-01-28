@@ -629,6 +629,14 @@
           const clean = label ? String(label) : "Demo";
           tenantPill.textContent = `Mandant: ${clean}`;
         };
+        const normalizeTenantKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const getPathTenantKey = () => {
+          const segments = window.location.pathname.split("/").filter(Boolean);
+          if (!segments.length) return "";
+          const maybeTenant = segments[0];
+          return normalizeTenantKey(maybeTenant);
+        };
+        const buildTenantSlug = (code) => normalizeTenantKey(code);
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = urlParams.get("devTenant");
         const tenantUrl = devTenant ? `${apiBase}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${apiBase}/api/tenants`;
@@ -643,16 +651,34 @@
         const activeTenantId = Number.isFinite(storedTenant)
           ? storedTenant
           : (tenantData.tenant && tenantData.tenant.id) ? tenantData.tenant.id : (tenants[0] && tenants[0].id);
+        const pathTenantKey = getPathTenantKey();
+        const matchedPathTenant = pathTenantKey
+          ? tenants.find((t) => normalizeTenantKey(t.code || t.name) === pathTenantKey)
+          : null;
+        const resolvedTenantId = matchedPathTenant ? matchedPathTenant.id : activeTenantId;
 
         tenantSelect.innerHTML = tenants
           .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
           .join("");
-        if (activeTenantId) {
-          tenantSelect.value = String(activeTenantId);
-          document.body.dataset.tenantId = String(activeTenantId);
+        if (resolvedTenantId) {
+          tenantSelect.value = String(resolvedTenantId);
+          document.body.dataset.tenantId = String(resolvedTenantId);
+          sessionStorage.setItem("tenant_id", String(resolvedTenantId));
         }
-        const activeTenant = tenants.find((t) => t.id === activeTenantId) || tenants[0];
+        const activeTenant = tenants.find((t) => t.id === resolvedTenantId) || tenants[0];
         setTenantPill(activeTenant ? (activeTenant.name || activeTenant.code) : "Demo");
+
+        const needsTenantRedirect = !pathTenantKey && activeTenant;
+        if (needsTenantRedirect) {
+          const slug = buildTenantSlug(activeTenant.code || activeTenant.name);
+          if (slug) {
+            const target = `/${slug}/pages/start.html`;
+            if (!window.location.pathname.startsWith(target)) {
+              window.location.replace(target);
+              return;
+            }
+          }
+        }
 
         const deptUrl = `${apiBase}/api/departments?tenant=${activeTenantId || ""}${devTenant ? `&devTenant=${encodeURIComponent(devTenant)}` : ""}`;
         const deptRes = await fetch(deptUrl, {
