@@ -629,6 +629,21 @@
           const clean = label ? String(label) : "Demo";
           tenantPill.textContent = `Mandant: ${clean}`;
         };
+        const getAccessEmail = async () => {
+          try {
+            const res = await fetch("/cdn-cgi/access/get-identity", { credentials: "same-origin" });
+            if (!res.ok) throw new Error("identity fetch failed");
+            const data = await res.json();
+            const email = data && (data.email || data.user_email || data.user) ? String(data.email || data.user_email || data.user) : "";
+            if (email) {
+              sessionStorage.setItem("user_email", email);
+              return email;
+            }
+          } catch (err) {
+            // ignore
+          }
+          return (sessionStorage.getItem("user_email") || "").trim();
+        };
         const normalizeTenantKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
         const getPathTenantKey = () => {
           const segments = window.location.pathname.split("/").filter(Boolean);
@@ -643,7 +658,12 @@
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = urlParams.get("devTenant");
         const tenantUrl = devTenant ? `${apiBase}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${apiBase}/api/tenants`;
-        const tenantRes = await fetch(tenantUrl, { headers: { Accept: "application/json" } });
+        const accessEmail = await getAccessEmail();
+        const tenantHeaders = { Accept: "application/json" };
+        if (accessEmail) {
+          tenantHeaders["x-user-email"] = accessEmail;
+        }
+        const tenantRes = await fetch(tenantUrl, { headers: tenantHeaders });
         if (!tenantRes.ok) return;
         const tenantData = await tenantRes.json();
         const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
@@ -685,7 +705,7 @@
 
         const deptUrl = `${apiBase}/api/departments?tenant=${activeTenantId || ""}${devTenant ? `&devTenant=${encodeURIComponent(devTenant)}` : ""}`;
         const deptRes = await fetch(deptUrl, {
-          headers: { Accept: "application/json" }
+          headers: tenantHeaders
         });
         const deptData = deptRes.ok ? await deptRes.json() : { departments: [] };
         const departments = Array.isArray(deptData.departments) ? deptData.departments : [];

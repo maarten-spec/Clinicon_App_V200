@@ -50,7 +50,7 @@ const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type"
+  "access-control-allow-headers": "content-type, x-user-email"
 };
 
 function jsonResponse(payload, status = 200) {

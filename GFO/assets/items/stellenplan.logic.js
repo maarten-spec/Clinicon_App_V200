@@ -126,8 +126,11 @@ function getContextIds() {
 }
 
 async function fetchJson(url, options = {}) {
+  const storedEmail = (sessionStorage.getItem("user_email") || "").trim();
+  const headers = { "content-type": "application/json" };
+  if (storedEmail) headers["x-user-email"] = storedEmail;
   const response = await fetch(`${getApiBase()}${url}`, {
-    headers: { "content-type": "application/json" },
+    headers,
     ...options
   });
   if (!response.ok) {
