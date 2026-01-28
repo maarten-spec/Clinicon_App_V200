@@ -221,6 +221,35 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       border-radius:12px;
       color:rgba(30,41,59,0.7);
     }
+    .timeslicer-modern .timeslicer-dept{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:nowrap;
+      background:rgba(255,255,255,0.96);
+      border:1px solid rgba(148,163,184,0.26);
+      padding:6px 8px;
+      border-radius:12px;
+      color:rgba(30,41,59,0.7);
+    }
+    .timeslicer-modern .timeslicer-dept label{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+      font-size:0.86rem;
+      color:#1f2937;
+    }
+    .timeslicer-modern .timeslicer-dept select{
+      border:1px solid rgba(148,163,184,0.35);
+      background:#f8fafc;
+      padding:6px 10px;
+      border-radius:10px;
+      font:inherit;
+      color:#0f172a;
+      min-width:200px;
+      height:34px;
+    }
     .timeslicer-modern .timeslicer-custom label{
       display:flex;
       align-items:center;
@@ -256,6 +285,10 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       .timeslicer-modern .timeslicer-custom{
         width:100%;
         justify-content:space-between;
+      }
+      .timeslicer-modern .timeslicer-dept{
+        width:100%;
+        justify-content:flex-start;
       }
     }
 
@@ -646,10 +679,10 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                 <strong id="heroBeds">--</strong>
                 <span>VK Gesamt Haus IST</span>
               </div>
-            <div class="hero-card">
-              <strong id="heroOccupancy">--</strong>
-              <span>Auslastung ueber alle Stationen</span>
-            </div>
+              <div class="hero-card">
+                <strong id="heroOccupancy">--</strong>
+                <span>VK Gesamt Haus SOLL</span>
+              </div>
             <div class="hero-card">
               <strong id="heroVariance">--</strong>
               <span>Personalabweichung (Std)</span>
@@ -685,6 +718,12 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <button class="timeslicer-btn" type="button" data-range="quarter" data-label="Quartal">Quartal</button>
                   <button class="timeslicer-btn" type="button" data-range="year" data-label="Jahr">Jahr</button>
                 </div>
+                <div class="timeslicer-dept">
+                  <label for="insightsDeptSelect">Abteilung</label>
+                  <select id="insightsDeptSelect">
+                    <option value="">Gesamtes Haus</option>
+                  </select>
+                </div>
                 <div class="timeslicer-custom">
                   <label>Von <input type="date" data-range-start /></label>
                   <span class="timeslicer-divider">-</span>
@@ -703,12 +742,12 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               <div class="kpi-sub" id="kpiBedsSub">VK Gesamt Haus SOLL: --</div>
               <div class="kpi-progress"><span id="kpiBedsProgress"></span></div>
             </div>
-          <div class="kpi-card">
-            <h4>Auslastung</h4>
-            <div class="kpi-value" id="kpiOccupancy">--</div>
-            <div class="kpi-sub" id="kpiOccupancySub">Trend: --</div>
-            <div class="kpi-progress"><span id="kpiOccupancyProgress"></span></div>
-          </div>
+            <div class="kpi-card">
+              <h4>VK Gesamt Haus IST</h4>
+              <div class="kpi-value" id="kpiOccupancy">--</div>
+              <div class="kpi-sub" id="kpiOccupancySub">Trend: --</div>
+              <div class="kpi-progress"><span id="kpiOccupancyProgress"></span></div>
+            </div>
             <div class="kpi-card kpi-tone-orange">
               <h4>Qualifikationsmix offen</h4>
               <div class="kpi-value" id="kpiViolations">--</div>
@@ -734,7 +773,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           </div>
           <div class="card">
             <div class="card-header">
-              <h3>Top Stationen (Auslastung)</h3>
+          <h3>Top Stationen (VK Gesamt Haus IST)</h3>
               <span class="card-sub">Klickbar</span>
             </div>
             <div class="chart-wrap">
@@ -803,7 +842,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                     <th>Station</th>
                       <th>VK Gesamt Haus SOLL</th>
                       <th>VK Gesamt Haus IST</th>
-                    <th>Auslastung</th>
+                      <th>VK Gesamt Haus IST</th>
                       <th>Qualifikationsmix</th>
                     <th>Abw. Std</th>
                   </tr>
@@ -819,7 +858,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
             </div>
             <div class="spotlight-row">
               <div class="spotlight-tile">
-                <span>Auslastung</span>
+                  <span>VK Gesamt Haus IST</span>
                 <strong id="spotlightOccupancy">--</strong>
               </div>
               <div class="spotlight-tile">
@@ -1803,6 +1842,15 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
   const fmtNumber = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
   const fmtInt = new Intl.NumberFormat("de-DE");
+  const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+  const monthLabelFromDate = (value) => {
+    if (!value) return "";
+    const raw = String(value);
+    const parts = raw.split("-");
+    if (parts.length < 2) return raw;
+    const idx = Number(parts[1]) - 1;
+    return Number.isFinite(idx) && MONTHS_SHORT[idx] ? MONTHS_SHORT[idx] : raw;
+  };
 
   const elements = {
       dataRange: document.getElementById("dataRange"),
@@ -1867,20 +1915,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       }, {});
     }
 
-  function renderKpis(data) {
-    const kpis = computeKpis(data.stations);
-    elements.heroBeds.textContent = fmtInt.format(kpis.bedsOccupied);
-    elements.heroOccupancy.textContent = fmtNumber.format(kpis.occupancy) + " %";
-    elements.heroVariance.textContent = fmtNumber.format(kpis.variance);
+    function renderKpis(data) {
+      const kpis = computeKpis(data.stations);
+      elements.heroBeds.textContent = fmtInt.format(kpis.bedsOccupied);
+      elements.heroOccupancy.textContent = fmtInt.format(kpis.bedsPlanned);
+      elements.heroVariance.textContent = fmtNumber.format(kpis.variance);
 
     elements.kpiBeds.textContent = fmtInt.format(kpis.bedsOccupied);
       elements.kpiBedsSub.textContent = "VK Gesamt Haus SOLL: " + fmtInt.format(kpis.bedsPlanned);
     elements.kpiBedsProgress.style.width = Math.min(100, kpis.occupancy).toFixed(1) + "%";
 
-    const trendDelta = data.trend.length > 1 ? data.trend[data.trend.length - 1].occupancy_pct - data.trend[0].occupancy_pct : 0;
-    elements.kpiOccupancy.textContent = fmtNumber.format(kpis.occupancy) + " %";
-    elements.kpiOccupancySub.textContent = "Trend: " + (trendDelta >= 0 ? "+" : "") + fmtNumber.format(trendDelta) + " %";
-    elements.kpiOccupancyProgress.style.width = Math.min(100, kpis.occupancy).toFixed(1) + "%";
+      const trendDelta = data.trend.length > 1 ? data.trend[data.trend.length - 1].staffed_hours - data.trend[0].staffed_hours : 0;
+      elements.kpiOccupancy.textContent = fmtInt.format(kpis.bedsOccupied);
+      elements.kpiOccupancySub.textContent = "Trend: " + (trendDelta >= 0 ? "+" : "") + fmtNumber.format(trendDelta);
+      elements.kpiOccupancyProgress.style.width = "100%";
 
     elements.kpiViolations.textContent = fmtInt.format(kpis.violations);
       elements.kpiViolationsSub.textContent = "Ohne Qualifikationsmix";
@@ -1897,21 +1945,21 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       return span;
     }
 
-  function renderTable(stations) {
-    elements.stationsTable.innerHTML = "";
-    stations.forEach((row) => {
-      const tr = document.createElement("tr");
-      tr.dataset.station = row.station;
-      tr.innerHTML = `
-        <td><strong>${row.station}</strong></td>
-        <td>${fmtInt.format(row.beds_planned)}</td>
-        <td>${fmtInt.format(row.beds_occupied)}</td>
-        <td><strong>${fmtNumber.format(row.occupancy_pct)}%</strong></td>
-        <td class="status-cell"></td>
-        <td style="color:${row.variance_hours >= 0 ? chartColors.accent3 : chartColors.danger}; font-weight:700;">
-          ${fmtNumber.format(row.variance_hours)}
-        </td>
-      `;
+    function renderTable(stations) {
+      elements.stationsTable.innerHTML = "";
+      stations.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.dataset.station = row.station;
+        tr.innerHTML = `
+          <td><strong>${row.station}</strong></td>
+          <td>${fmtInt.format(row.beds_planned)}</td>
+          <td>${fmtInt.format(row.beds_occupied)}</td>
+          <td><strong>${fmtInt.format(row.beds_occupied)}</strong></td>
+          <td class="status-cell"></td>
+          <td style="color:${row.variance_hours >= 0 ? chartColors.accent3 : chartColors.danger}; font-weight:700;">
+            ${fmtNumber.format(row.variance_hours)}
+          </td>
+        `;
       tr.querySelector(".status-cell").appendChild(mixBadge(row.qual_mix_label));
       tr.addEventListener("click", () => selectStation(row.station));
       elements.stationsTable.appendChild(tr);
@@ -1926,7 +1974,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       row.classList.toggle("active", row.dataset.station === station.station);
     });
     elements.spotlightStation.textContent = station.station;
-    elements.spotlightOccupancy.textContent = fmtNumber.format(station.occupancy_pct) + "%";
+      elements.spotlightOccupancy.textContent = fmtInt.format(station.beds_occupied);
       elements.spotlightStatus.textContent = station.qual_mix_label || "Keine Angabe";
     elements.spotlightPlanned.textContent = fmtInt.format(station.beds_planned);
     elements.spotlightOccupied.textContent = fmtInt.format(station.beds_occupied);
@@ -1955,51 +2003,51 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     elements.shiftLate.textContent = fmtInt.format(find("Spaet")) + "%";
     elements.shiftNight.textContent = fmtInt.format(find("Nacht")) + "%";
   }
-  function initCharts(data) {
-    const trendCtx = document.getElementById("trendChart");
-    charts.trend = new Chart(trendCtx, {
-      type: "line",
-      data: {
-        labels: data.trend.map((row) => row.date),
-        datasets: [
-          {
-            label: "Auslastung %",
-            data: data.trend.map((row) => row.occupancy_pct),
-            borderColor: chartColors.accent,
-            backgroundColor: "rgba(28,107,255,0.1)",
-            tension: 0.3,
-            fill: true,
-            yAxisID: "y"
-          },
-          {
-            label: "Ist-Stunden",
-            data: data.trend.map((row) => row.staffed_hours),
-            borderColor: chartColors.accent3,
-            tension: 0.3,
-            yAxisID: "y1"
-          },
-          {
-            label: "Soll-Stunden",
-            data: data.trend.map((row) => row.required_hours),
-            borderColor: chartColors.accent2,
-            borderDash: [6, 4],
-            tension: 0.3,
-            yAxisID: "y1"
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "top", labels: { boxWidth: 12 } }
+    function initCharts(data) {
+      const trendCtx = document.getElementById("trendChart");
+      charts.trend = new Chart(trendCtx, {
+        type: "line",
+        data: {
+          labels: data.trend.map((row) => row.date),
+          datasets: [
+            {
+              label: "VK Gesamt Haus IST",
+              data: data.trend.map((row) => row.staffed_hours),
+              borderColor: chartColors.accent,
+              backgroundColor: "rgba(28,107,255,0.1)",
+              tension: 0.3,
+              fill: true,
+              yAxisID: "y"
+            },
+            {
+              label: "VK Gesamt Haus SOLL",
+              data: data.trend.map((row) => row.required_hours),
+              borderColor: chartColors.accent3,
+              tension: 0.3,
+              yAxisID: "y1"
+            }
+          ]
         },
-        scales: {
-          y: { beginAtZero: true, ticks: { callback: (value) => value + "%" } },
-          y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 12 } }
+          },
+          scales: {
+            x: {
+              ticks: {
+                callback: function (value) {
+                  const label = this.getLabelForValue ? this.getLabelForValue(value) : value;
+                  return monthLabelFromDate(label);
+                }
+              }
+            },
+            y: { beginAtZero: true },
+            y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false } }
+          }
         }
-      }
-    });
+      });
 
     const topCtx = document.getElementById("topStationsChart");
     charts.topStations = new Chart(topCtx, {
@@ -2008,8 +2056,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         labels: data.stations.map((row) => row.station),
         datasets: [
           {
-            label: "Auslastung %",
-            data: data.stations.map((row) => row.occupancy_pct),
+            label: "VK Gesamt Haus IST",
+            data: data.stations.map((row) => row.beds_occupied),
             backgroundColor: data.stations.map((row) =>
               selectedStation && row.station === selectedStation.station ? chartColors.accent2 : chartColors.accent
             ),
@@ -2037,19 +2085,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     });
 
     const statusCtx = document.getElementById("statusChart");
-    const statusCounts = buildMixCounts(data.stations);
-    charts.status = new Chart(statusCtx, {
-      type: "doughnut",
-      data: {
-        labels: ["OK", "Warn", "Risiko"],
-        datasets: [
-          {
-            data: [statusCounts.OK, statusCounts.WARN, statusCounts.VIOLATION],
-            backgroundColor: [chartColors.accent3, chartColors.accent4, chartColors.danger],
-            borderWidth: 0
-          }
-        ]
-      },
+      const statusCounts = buildMixCounts(data.stations);
+      const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      charts.status = new Chart(statusCtx, {
+        type: "doughnut",
+        data: {
+          labels: topMix.map(([label]) => label),
+          datasets: [
+            {
+              data: topMix.map(([, value]) => value),
+              backgroundColor: [chartColors.accent3, chartColors.accent4, chartColors.accent],
+              borderWidth: 0
+            }
+          ]
+        },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -2087,31 +2136,32 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     charts.topStations.update();
   }
 
-  function updateCharts(data) {
-    if (!charts.trend) {
-      initCharts(data);
-      return;
-    }
-    charts.trend.data.labels = data.trend.map((row) => row.date);
-    charts.trend.data.datasets[0].data = data.trend.map((row) => row.occupancy_pct);
-    charts.trend.data.datasets[1].data = data.trend.map((row) => row.staffed_hours);
-    charts.trend.data.datasets[2].data = data.trend.map((row) => row.required_hours);
-    charts.trend.update();
+    function updateCharts(data) {
+      if (!charts.trend) {
+        initCharts(data);
+        return;
+      }
+      charts.trend.data.labels = data.trend.map((row) => row.date);
+      charts.trend.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
+      charts.trend.data.datasets[1].data = data.trend.map((row) => row.required_hours);
+      charts.trend.update();
 
-    charts.topStations.data.labels = data.stations.map((row) => row.station);
-    charts.topStations.data.datasets[0].data = data.stations.map((row) => row.occupancy_pct);
-    updateTopChart();
+      charts.topStations.data.labels = data.stations.map((row) => row.station);
+      charts.topStations.data.datasets[0].data = data.stations.map((row) => row.beds_occupied);
+      updateTopChart();
 
-    const statusCounts = buildMixCounts(data.stations);
-    charts.status.data.datasets[0].data = [statusCounts.OK, statusCounts.WARN, statusCounts.VIOLATION];
-    charts.status.update();
+      const statusCounts = buildMixCounts(data.stations);
+      const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      charts.status.data.labels = topMix.map(([label]) => label);
+      charts.status.data.datasets[0].data = topMix.map(([, value]) => value);
+      charts.status.update();
 
     charts.shift.data.labels = data.shift_mix.map((entry) => entry.label);
     charts.shift.data.datasets[0].data = data.shift_mix.map((entry) => entry.value);
     charts.shift.update();
   }
-  function applyData(data) {
-    currentStations = [...data.stations].sort((a, b) => b.occupancy_pct - a.occupancy_pct);
+    function applyData(data) {
+      currentStations = [...data.stations].sort((a, b) => b.beds_occupied - a.beds_occupied);
     renderKpis({ ...data, stations: currentStations });
     renderTable(currentStations);
     selectStation(currentStations[0].station);
@@ -2174,6 +2224,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const rangeButtons = Array.from(document.querySelectorAll('.timeslicer-btn'));
     const startInput = document.querySelector('[data-range-start]');
     const endInput = document.querySelector('[data-range-end]');
+    const deptSelect = document.getElementById('insightsDeptSelect');
 
     const formatDate = (value) => {
       if (!value) return '';
@@ -2205,6 +2256,53 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     };
     if (startInput) startInput.addEventListener('change', applyCustomRange);
     if (endInput) endInput.addEventListener('change', applyCustomRange);
+
+    const populateDepartments = async () => {
+      if (!deptSelect) return;
+      const apiBase = document.body.dataset.apiBase || "";
+      const params = new URLSearchParams();
+      const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+      const devTenant = new URLSearchParams(window.location.search).get("devTenant") || "";
+      if (tenantId) params.set("tenant", tenantId);
+      if (!tenantId && devTenant) params.set("devTenant", devTenant);
+      const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
+      try {
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        if (!response.ok) {
+          throw new Error("Departments fetch failed");
+        }
+        const payload = await response.json();
+        if (!payload || !Array.isArray(payload.departments)) {
+          throw new Error("Invalid departments payload");
+        }
+        const current = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
+        deptSelect.innerHTML = '<option value="">Gesamtes Haus</option>';
+        payload.departments.forEach((dept) => {
+          const option = document.createElement("option");
+          option.value = dept.id;
+          option.textContent = dept.name;
+          if (String(dept.id) === String(current)) {
+            option.selected = true;
+          }
+          deptSelect.appendChild(option);
+        });
+      } catch (err) {
+        // keep default option only
+      }
+    };
+
+    if (deptSelect) {
+      deptSelect.addEventListener("change", () => {
+        const nextValue = deptSelect.value || "";
+        if (nextValue) {
+          sessionStorage.setItem("department_id", nextValue);
+        } else {
+          sessionStorage.removeItem("department_id");
+        }
+        window.location.reload();
+      });
+      populateDepartments();
+    }
   })();
 </script>
   </template>

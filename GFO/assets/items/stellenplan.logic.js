@@ -19,6 +19,7 @@ const state = {
   employees: [],
   extras: [],
   planTargets: { months: Array(MONTH_COUNT).fill(0) },
+  sollwert: { value: 0, method: "arbeitsplatz", inputs: {} },
   dienstart: "DA03",
   station: "Station 1",
   tenantId: null,
@@ -42,9 +43,19 @@ const selectors = {
   extraBody: "#extraBody",
   sumRow: "#sumRow",
   sumExtraRow: "#sumExtraRow",
+  sumMainInExtraRow: "#sumMainInExtraRow",
   sumCombinedRow: "#sumCombinedRow",
   planRow: "#planRow",
-  deviationRow: "#planDeviationRow"
+  deviationRow: "#planDeviationRow",
+  sollwertRow: "#sollwertRow",
+  istSollRow: "#istSollRow",
+  sollwertModal: "#sollwertModal",
+  sollwertButton: "#openSollwertModal",
+  sollHoursInput: "#sollHoursInput",
+  sollAnnualInput: "#sollAnnualInput",
+  sollDirectInput: "#sollDirectInput",
+  sollResultValue: "#sollResultValue",
+  sollSaveButton: "#saveSollwert"
 };
 
 function $(selector) {
@@ -149,12 +160,32 @@ async function loadPlan(year) {
   state.employees = (Array.isArray(data.employees) ? data.employees : []).map(normalizeEmployeeRow);
   state.extras = (Array.isArray(data.extras) ? data.extras : []).map(normalizeExtraRow);
   state.planTargets = data.planTargets || { months: buildEmptyMonths() };
+  if (Object.prototype.hasOwnProperty.call(data, "sollwert")) {
+    state.sollwert = data.sollwert || { value: 0, method: "arbeitsplatz", inputs: {} };
+  }
 
   if (!state.employees.length) {
     state.employees = [createBlankEmployee()];
   }
   if (!state.extras.length) {
     state.extras = DEFAULT_EXTRAS.map((label) => createBlankExtra(label));
+  }
+}
+
+async function loadSollwert(year) {
+  const context = getContextIds();
+  const params = new URLSearchParams({ year: String(year) });
+  if (context.tenantId) params.set("tenant", String(context.tenantId));
+  if (context.departmentId) params.set("department", String(context.departmentId));
+  const devTenant = getDevTenantParam();
+  if (devTenant) params.set("devTenant", devTenant);
+  try {
+    const data = await fetchJson(`/api/stellenplan/sollwert?${params.toString()}`);
+    if (data && data.ok) {
+      state.sollwert = data.sollwert || { value: 0, method: "arbeitsplatz", inputs: {} };
+    }
+  } catch (err) {
+    // ignore
   }
 }
 
@@ -523,17 +554,78 @@ function renderPlanRow(rowElement, months) {
   }
 }
 
+function renderSollwertRow(rowElement, months) {
+  if (!rowElement) return;
+  const cells = rowElement.querySelectorAll("[data-soll-month]");
+  cells.forEach((cell) => {
+    const index = Number.parseInt(cell.dataset.sollMonth, 10);
+    cell.textContent = formatNumber(months[index] || 0);
+  });
+  const avgCell = rowElement.querySelector("[data-soll-average]");
+  if (avgCell) {
+    const total = months.reduce((acc, val) => acc + normalizeNumber(val), 0);
+    avgCell.textContent = formatNumber(total / MONTH_COUNT);
+  }
+}
+
+function renderIstSollRow(rowElement, months) {
+  if (!rowElement) return;
+  const cells = rowElement.querySelectorAll("[data-ist-soll-month]");
+  cells.forEach((cell) => {
+    const index = Number.parseInt(cell.dataset.istSollMonth, 10);
+    const value = months[index] || 0;
+    cell.textContent = formatNumber(value);
+    applyValueTone(cell, value);
+  });
+  const avgCell = rowElement.querySelector("[data-ist-soll-average]");
+  if (avgCell) {
+    const total = months.reduce((acc, val) => acc + normalizeNumber(val), 0);
+    const avgValue = total / MONTH_COUNT;
+    avgCell.textContent = formatNumber(avgValue);
+    applyValueTone(avgCell, avgValue);
+  }
+}
+
 function renderDeviationRow(rowElement, deviationMonths) {
   if (!rowElement) return;
   const cells = rowElement.querySelectorAll("[data-deviation-month]");
   cells.forEach((cell) => {
     const index = Number.parseInt(cell.dataset.deviationMonth, 10);
-    cell.textContent = formatNumber(deviationMonths[index] || 0);
+    const value = deviationMonths[index] || 0;
+    cell.textContent = formatNumber(value);
+    applyValueTone(cell, value);
   });
   const avgCell = rowElement.querySelector("[data-deviation-average]");
   if (avgCell) {
     const total = deviationMonths.reduce((acc, val) => acc + normalizeNumber(val), 0);
-    avgCell.textContent = formatNumber(total / MONTH_COUNT);
+    const avgValue = total / MONTH_COUNT;
+    avgCell.textContent = formatNumber(avgValue);
+    applyValueTone(avgCell, avgValue);
+  }
+}
+
+function applyValueTone(cell, value) {
+  if (!cell) return;
+  cell.classList.remove("value-positive", "value-negative");
+  if (value > 0) {
+    cell.classList.add("value-positive");
+  } else if (value < 0) {
+    cell.classList.add("value-negative");
+  }
+}
+
+function applyToneBySelector(rowElement, cellSelector, avgSelector) {
+  if (!rowElement) return;
+  rowElement.querySelectorAll(cellSelector).forEach((cell) => {
+    const value = normalizeNumber(cell.textContent);
+    applyValueTone(cell, value);
+  });
+  if (avgSelector) {
+    const avgCell = rowElement.querySelector(avgSelector);
+    if (avgCell) {
+      const value = normalizeNumber(avgCell.textContent);
+      applyValueTone(avgCell, value);
+    }
   }
 }
 
@@ -551,8 +643,14 @@ function refreshTotals() {
 
   renderTotals($(selectors.sumRow), mainTotals);
   renderTotals($(selectors.sumExtraRow), extraTotals);
+  renderTotals($(selectors.sumMainInExtraRow), mainTotals);
   renderTotals($(selectors.sumCombinedRow), combinedTotals);
   renderPlanRow($(selectors.planRow), planMonths);
+  const sollValue = normalizeNumber(state.sollwert && state.sollwert.value);
+  const sollMonths = buildEmptyMonths().map(() => sollValue);
+  const istSollMonths = combinedTotals.months.map((val, idx) => val - normalizeNumber(sollMonths[idx] || 0));
+  renderSollwertRow($(selectors.sollwertRow), sollMonths);
+  renderIstSollRow($(selectors.istSollRow), istSollMonths);
   renderDeviationRow($(selectors.deviationRow), deviationMonths);
 }
 
@@ -868,11 +966,116 @@ async function bindControls() {
       }
     });
   }
+
+  const sollwertModal = $(selectors.sollwertModal);
+  const sollwertButton = $(selectors.sollwertButton);
+  const sollHoursInput = $(selectors.sollHoursInput);
+  const sollAnnualInput = $(selectors.sollAnnualInput);
+  const sollDirectInput = $(selectors.sollDirectInput);
+  const sollResultValue = $(selectors.sollResultValue);
+  const sollSaveButton = $(selectors.sollSaveButton);
+  if (sollwertModal && sollwertButton) {
+    const closeModal = () => {
+      sollwertModal.classList.add("is-hidden");
+      document.body.style.overflow = "";
+    };
+    const openModal = () => {
+      if (sollHoursInput) {
+        sollHoursInput.value = state.sollwert?.inputs?.hours ?? "";
+      }
+      if (sollAnnualInput) {
+        sollAnnualInput.value = state.sollwert?.inputs?.annual ?? "";
+      }
+      if (sollDirectInput) {
+        sollDirectInput.value = state.sollwert?.inputs?.direct ?? "";
+      }
+      if (sollResultValue) {
+        sollResultValue.textContent = formatNumber(state.sollwert?.value ?? 0);
+      }
+      sollwertModal.classList.remove("is-hidden");
+      document.body.style.overflow = "hidden";
+    };
+    const handleCloseTrigger = (event) => {
+      const closeTarget = event.target instanceof Element
+        ? event.target.closest("[data-modal-close]")
+        : null;
+      if (closeTarget && !sollwertModal.classList.contains("is-hidden")) {
+        event.preventDefault();
+        closeModal();
+      }
+    };
+
+    sollwertButton.addEventListener("click", openModal);
+    sollwertModal.querySelectorAll("[data-modal-close]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        closeModal();
+      });
+    });
+    sollwertModal.addEventListener("click", (event) => {
+      const closeTarget = event.target instanceof Element
+        ? event.target.closest("[data-modal-close]")
+        : null;
+      if (closeTarget || event.target === sollwertModal) {
+        closeModal();
+      }
+    });
+    document.addEventListener("click", handleCloseTrigger, true);
+    document.addEventListener("pointerup", handleCloseTrigger, true);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !sollwertModal.classList.contains("is-hidden")) {
+        closeModal();
+      }
+    });
+    window.__closeSollwertModal = closeModal;
+    window.__openSollwertModal = openModal;
+
+    const computeSollwert = () => {
+      const hours = normalizeNumber(sollHoursInput ? sollHoursInput.value : 0);
+      const annual = normalizeNumber(sollAnnualInput ? sollAnnualInput.value : 0);
+      const direct = normalizeNumber(sollDirectInput ? sollDirectInput.value : 0);
+      const computed = annual > 0 ? hours / annual : 0;
+      const value = direct > 0 ? direct : computed;
+      if (sollResultValue) sollResultValue.textContent = formatNumber(value);
+      return { value, inputs: { hours, annual, direct } };
+    };
+
+    [sollHoursInput, sollAnnualInput, sollDirectInput].forEach((input) => {
+      if (!input) return;
+      input.addEventListener("input", computeSollwert);
+    });
+
+    if (sollSaveButton) {
+      sollSaveButton.addEventListener("click", async () => {
+        const result = computeSollwert();
+        state.sollwert = { value: result.value, method: "arbeitsplatz", inputs: result.inputs };
+        renderAll();
+        try {
+          const payload = {
+            year: state.year,
+            value: result.value,
+            method: "arbeitsplatz",
+            inputs: result.inputs,
+            tenantId: state.tenantId,
+            departmentId: state.departmentId
+          };
+          await fetchJson("/api/stellenplan/sollwert", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          closeModal();
+        } catch (err) {
+          setStatus("Fehler beim Speichern", true);
+        }
+      });
+    }
+  }
 }
 
 async function reload() {
   try {
     await loadPlan(state.year);
+    await loadSollwert(state.year);
     renderAll();
   } catch (error) {
     setStatus("Fehler beim Laden", true);

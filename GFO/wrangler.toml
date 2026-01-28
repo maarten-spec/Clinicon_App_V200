@@ -4,6 +4,6 @@ compatibility_date = "2026-01-23"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "clinicon_stellenplan"
-database_id = "e58d7dc0-29f9-4289-b5a2-236717073c0b"
+database_name = "DIN_clinicon_stellenplan"
+database_id = "df5504d3-095c-4737-a910-1b2f6c2559ed"
 migrations_dir = "worker/migrations"

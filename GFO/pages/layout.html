@@ -598,7 +598,7 @@
             <select id="departmentSelect" class="tenant-select"></select>
           </div>
           <span class="pill app-pill" id="dataRange">Zeitraum: Demo</span>
-          <span class="timestamp-pill" data-app-timestamp></span>
+          <span class="pill app-pill" id="tenantPill">Mandant: Demo</span>
           <button class="button app-button secondary" id="refreshButton" type="button">Aktualisieren</button>
           <button class="button app-button primary" type="button">Report exportieren</button>
           <a class="button app-button secondary logout-link" href="/cdn-cgi/access/logout">Logout</a>
@@ -620,9 +620,15 @@
       const tenantSelect = document.getElementById("tenantSelect");
       const departmentSelect = document.getElementById("departmentSelect");
       const tenantLabel = document.getElementById("tenantLabel");
+      const tenantPill = document.getElementById("tenantPill");
       if (!controls || !tenantSelect || !departmentSelect) return;
 
       try {
+        const setTenantPill = (label) => {
+          if (!tenantPill) return;
+          const clean = label ? String(label) : "Demo";
+          tenantPill.textContent = `Mandant: ${clean}`;
+        };
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = urlParams.get("devTenant");
         const tenantUrl = devTenant ? `${apiBase}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${apiBase}/api/tenants`;
@@ -645,6 +651,8 @@
           tenantSelect.value = String(activeTenantId);
           document.body.dataset.tenantId = String(activeTenantId);
         }
+        const activeTenant = tenants.find((t) => t.id === activeTenantId) || tenants[0];
+        setTenantPill(activeTenant ? (activeTenant.name || activeTenant.code) : "Demo");
 
         const deptUrl = `${apiBase}/api/departments?tenant=${activeTenantId || ""}${devTenant ? `&devTenant=${encodeURIComponent(devTenant)}` : ""}`;
         const deptRes = await fetch(deptUrl, {

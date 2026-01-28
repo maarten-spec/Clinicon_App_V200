@@ -83,6 +83,15 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseJsonSafe(value, fallback = {}) {
+  try {
+    if (!value) return fallback;
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
 function buildMonthArray(seed = 0) {
   return MONTHS.map(() => seed);
 }
@@ -290,6 +299,10 @@ async function handleGetStellenplan(request, env) {
     .prepare("SELECT month, value, scope FROM wirtschaftsplan_targets WHERE year=? AND scope=?")
     .bind(year, scopeKey)
     .all();
+  const sollwertRow = await db
+    .prepare("SELECT value, method, inputs_json FROM sollwert_values WHERE year=? AND scope=?")
+    .bind(year, scopeKey)
+    .first();
 
   const valueMap = new Map();
   for (const row of monthValues.results || []) {
@@ -341,6 +354,11 @@ async function handleGetStellenplan(request, env) {
     planTargets: {
       scope: scopeKey,
       months: planMonthValues
+    },
+    sollwert: {
+      value: normalizeNumber(sollwertRow ? sollwertRow.value : 0),
+      method: sollwertRow && sollwertRow.method ? sollwertRow.method : "arbeitsplatz",
+      inputs: sollwertRow ? parseJsonSafe(sollwertRow.inputs_json, {}) : {}
     }
   });
 }
@@ -501,6 +519,74 @@ async function handlePostStellenplan(request, env) {
   return jsonResponse({ ok: true });
 }
 
+async function handleGetSollwert(request, env) {
+  const url = new URL(request.url);
+  const year = toInt(url.searchParams.get("year"), new Date().getFullYear());
+  if (!Number.isFinite(year)) {
+    return badRequest("Invalid year.");
+  }
+  const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const deptContext = await resolveDepartment(db, request, null, tenantId);
+  const departmentId = deptContext.department ? deptContext.department.id : null;
+  const scopeKey = buildScopeKey(tenantId, departmentId);
+
+  const row = await db
+    .prepare("SELECT value, method, inputs_json FROM sollwert_values WHERE year=? AND scope=?")
+    .bind(year, scopeKey)
+    .first();
+
+  return jsonResponse({
+    ok: true,
+    year,
+    sollwert: {
+      value: normalizeNumber(row ? row.value : 0),
+      method: row && row.method ? row.method : "arbeitsplatz",
+      inputs: row ? parseJsonSafe(row.inputs_json, {}) : {}
+    }
+  });
+}
+
+async function handlePostSollwert(request, env) {
+  const payload = await request.json().catch(() => null);
+  if (!payload || typeof payload !== "object") {
+    return badRequest("Invalid payload.");
+  }
+  const year = toInt(payload.year, new Date().getFullYear());
+  if (!Number.isFinite(year)) {
+    return badRequest("Invalid year.");
+  }
+  const value = normalizeNumber(payload.value);
+  const method = normalizeText(payload.method) || "arbeitsplatz";
+  const inputsJson = JSON.stringify(payload.inputs || {});
+
+  const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request, payload.tenantId);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const deptContext = await resolveDepartment(db, request, payload.departmentId, tenantId);
+  const departmentId = deptContext.department ? deptContext.department.id : null;
+  const scopeKey = buildScopeKey(tenantId, departmentId);
+
+  await db
+    .prepare(
+      "INSERT INTO sollwert_values (year, value, method, inputs_json, scope, tenant_id, department_id) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT(year, scope) DO UPDATE SET value=excluded.value, method=excluded.method, inputs_json=excluded.inputs_json, " +
+        "tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
+    )
+    .bind(year, value, method, inputsJson, scopeKey, tenantId || null, departmentId || null)
+    .run();
+
+  return jsonResponse({ ok: true });
+}
+
 async function handleGetSummary(request, env) {
   const url = new URL(request.url);
   const year = toInt(url.searchParams.get("year"), new Date().getFullYear());
@@ -624,22 +710,22 @@ async function handleGetInsights(request, env) {
   const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
   const month = await resolveInsightsMonth(db, year, monthParam);
 
-  const stationRows = await db
-    .prepare(
-      "SELECT s.id, s.name, s.code, s.type, " +
-        "COALESCE(cap.vk_soll, 0) AS vk_soll, " +
-        "COALESCE(act.vk_ist, 0) AS vk_ist, " +
-        "COALESCE(pp.status, 'OK') AS ppug_status, " +
-        "COALESCE(pp.ratio_actual, 0) AS ratio_actual, " +
-        "COALESCE(pp.ratio_target, 0) AS ratio_target " +
-        "FROM stations s " +
-        "LEFT JOIN station_capacity cap ON cap.station_id=s.id AND cap.year=? AND cap.month=? " +
-        "LEFT JOIN staffing_actuals act ON act.station_id=s.id AND act.year=? AND act.month=? " +
-        "LEFT JOIN ppug_status pp ON pp.station_id=s.id AND pp.year=? AND pp.month=? " +
-        "WHERE s.is_active=1 " +
-        (tenantId ? "AND (s.tenant_id=? OR s.tenant_id IS NULL) " : "") +
-        "ORDER BY s.name ASC"
-    )
+    const stationRows = await db
+      .prepare(
+        "SELECT s.id, s.name, s.code, s.type, " +
+          "COALESCE(cap.vk_soll, 0) AS vk_soll, " +
+          "COALESCE(act.vk_ist, 0) AS vk_ist, " +
+          "COALESCE(pp.status, 'OK') AS ppug_status, " +
+          "COALESCE(pp.ratio_actual, 0) AS ratio_actual, " +
+          "COALESCE(pp.ratio_target, 0) AS ratio_target " +
+          "FROM stations s " +
+          "LEFT JOIN station_capacity cap ON cap.station_id=s.id AND cap.year=? AND cap.month=? " +
+          "LEFT JOIN staffing_actuals act ON act.station_id=s.id AND act.year=? AND act.month=? " +
+          "LEFT JOIN ppug_status pp ON pp.station_id=s.id AND pp.year=? AND pp.month=? " +
+          "WHERE s.is_active=1 " +
+          (tenantId ? "AND (s.tenant_id=? OR s.tenant_id IS NULL) " : "") +
+          "ORDER BY s.name ASC"
+      )
     .bind(
       year,
       month,
@@ -673,30 +759,77 @@ async function handleGetInsights(request, env) {
     }
   }
 
-  const stations = (stationRows.results || []).map((row) => {
-    const vkSoll = normalizeNumber(row.vk_soll);
-    const vkIst = normalizeNumber(row.vk_ist);
-    const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
-    const mix = mixMap.get(row.id);
-    const mixLabel = mix ? (qualMap.get(mix.qualification_id) || "Qualifikation") : "Keine Angabe";
-    return {
-      station: normalizeText(row.name || row.code || "Station"),
-      beds_planned: vkSoll,
-      beds_occupied: vkIst,
-      occupancy_pct: occupancy,
-      qual_mix_label: normalizeText(mixLabel),
-      variance_hours: vkIst - vkSoll
-    };
-  });
+    const stations = (stationRows.results || []).map((row) => {
+      const vkSoll = normalizeNumber(row.vk_soll);
+      const vkIst = normalizeNumber(row.vk_ist);
+      const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
+      const mix = mixMap.get(row.id);
+      const mixLabel = mix ? (qualMap.get(mix.qualification_id) || "Qualifikation") : "Keine Angabe";
+      return {
+        station: normalizeText(row.name || row.code || "Station"),
+        beds_planned: vkSoll,
+        beds_occupied: vkIst,
+        occupancy_pct: occupancy,
+        qual_mix_label: normalizeText(mixLabel),
+        variance_hours: vkIst - vkSoll
+      };
+    });
 
-  const actualTotals = await db
-    .prepare(
-      "SELECT month, SUM(vk_ist) AS total FROM staffing_actuals WHERE year=? " +
-        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
-        "GROUP BY month"
-    )
-    .bind(...[year, ...(tenantId ? [tenantId] : [])])
-    .all();
+    // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
+    if (!stations.length) {
+      let empSql =
+        "SELECT e.extra_category AS dept, SUM(v.value) AS total " +
+        "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+        "WHERE v.year=? AND v.month=? AND e.category='main'";
+      const empParams = [year, month];
+      if (tenantId) {
+        empSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+        empParams.push(tenantId);
+      }
+      const deptId = toInt(url.searchParams.get("department"), null);
+      if (Number.isFinite(deptId)) {
+        empSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+        empParams.push(deptId);
+      }
+      empSql += " GROUP BY e.extra_category ORDER BY e.extra_category";
+      const empRows = await db.prepare(empSql).bind(...empParams).all();
+      for (const row of empRows.results || []) {
+        const label = normalizeText(row.dept || "Station");
+        const vkIst = normalizeNumber(row.total);
+        stations.push({
+          station: label,
+          beds_planned: 0,
+          beds_occupied: vkIst,
+          occupancy_pct: 0,
+          qual_mix_label: "Keine Angabe",
+          variance_hours: vkIst
+        });
+      }
+    }
+
+    let actualTotals;
+    if (stationRows.results && stationRows.results.length) {
+      actualTotals = await db
+        .prepare(
+          "SELECT month, SUM(vk_ist) AS total FROM staffing_actuals WHERE year=? " +
+            (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+            "GROUP BY month"
+        )
+        .bind(...[year, ...(tenantId ? [tenantId] : [])])
+        .all();
+    } else {
+      let empTotalSql =
+        "SELECT v.month AS month, SUM(v.value) AS total " +
+        "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+        "WHERE v.year=? AND e.category='main'";
+      const empTotalParams = [year];
+      if (tenantId) {
+        empTotalSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+        empTotalParams.push(tenantId);
+      }
+      empTotalSql += " GROUP BY v.month";
+      actualTotals = await db.prepare(empTotalSql).bind(...empTotalParams).all();
+    }
   const planTotals = await db
     .prepare(
       "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
@@ -765,6 +898,14 @@ export default {
 
     if (url.pathname === "/api/stellenplan" && request.method === "POST") {
       return withCors(await handlePostStellenplan(request, env));
+    }
+
+    if (url.pathname === "/api/stellenplan/sollwert" && request.method === "GET") {
+      return withCors(await handleGetSollwert(request, env));
+    }
+
+    if (url.pathname === "/api/stellenplan/sollwert" && request.method === "POST") {
+      return withCors(await handlePostSollwert(request, env));
     }
 
     if (url.pathname === "/api/stellenplan/summary" && request.method === "GET") {

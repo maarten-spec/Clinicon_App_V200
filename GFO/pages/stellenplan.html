@@ -111,16 +111,20 @@
       border-color:#fecaca;
     }
     .table-wrap{
-      overflow:auto;
-      border:1px solid var(--border);
+      overflow:visible;
+      border:none;
       border-radius:14px;
+      padding:1px;
+      background:var(--border);
     }
     table{
       width:100%;
-      border-collapse:collapse;
+      border-collapse:separate;
+      border-spacing:0;
       font-size:0.92rem;
       background:#fff;
       table-layout:fixed;
+      border-radius:13px;
     }
     th, td{
       padding:12px 10px;
@@ -140,6 +144,11 @@
       font-weight:700;
       background:var(--header);
       color:#0f172a;
+    }
+    tfoot td.summary-label{
+      white-space:normal;
+      line-height:1.25;
+      word-break:break-word;
     }
     .cell-input{
       width:100%;
@@ -219,6 +228,7 @@
     td.qual-cell{
       white-space:normal;
       padding-right:12px;
+      padding-left:2px;
     }
     .cell-input-key{
       background:var(--input);
@@ -255,7 +265,7 @@
       display:flex;
       align-items:center;
       gap:8px;
-      padding:0;
+      padding:0 8px;
       border-radius:10px;
       border:1px solid var(--border);
       background:#fff;
@@ -361,9 +371,7 @@
       position:relative;
       z-index:2001;
     }
-    .table-wrap{
-      overflow:visible;
-    }
+    /* table-wrap overflow stays visible for dropdown panels */
     .multi-wrap.open .multi-panel{
       display:block;
     }
@@ -418,7 +426,7 @@
       gap:6px;
       max-height:48px;
       overflow:auto;
-      padding:2px 0;
+      padding:0;
     }
     .tag-pill{
       display:inline-flex;
@@ -462,8 +470,18 @@
       margin-left:10px;
     }
     .sollwert-cell{
-      text-align:right;
-      padding-right:8px;
+      text-align:left;
+      padding-right:12px;
+      padding-left:12px;
+      display:flex;
+      justify-content:flex-start;
+      align-items:center;
+      min-width:260px;
+    }
+    .sollwert-cell .button{
+      width:100%;
+      max-width:none;
+      white-space:normal;
     }
     .action-btn{
       width:36px;
@@ -491,10 +509,93 @@
       font-weight:700;
       color:#1f2a44;
     }
+    .value-positive{
+      color:#15803d;
+    }
+    .value-negative{
+      color:#b91c1c;
+    }
     .section-title{
       margin:0 0 12px;
       font-size:1.05rem;
       font-weight:700;
+    }
+    .modal-overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(15,23,42,0.45);
+      z-index:3000;
+      padding:20px;
+    }
+    .modal-card{
+      width:min(520px, 100%);
+      background:#fff;
+      border-radius:16px;
+      border:1px solid var(--border);
+      box-shadow:0 24px 48px rgba(15,23,42,0.2);
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .modal-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .modal-title{
+      margin:0;
+      font-size:1.1rem;
+    }
+    .modal-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      margin-top:8px;
+    }
+    .modal-form{
+      display:grid;
+      gap:10px;
+    }
+    .modal-form label{
+      font-size:0.85rem;
+      color:var(--muted);
+      font-weight:600;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .modal-input{
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      font:inherit;
+      background:#fff;
+    }
+    .modal-result{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:700;
+      color:#1f2a44;
+    }
+    .modal-note{
+      font-size:0.82rem;
+      color:var(--muted);
+    }
+    .modal-close{
+      border:none;
+      background:transparent;
+      font-size:1.2rem;
+      cursor:pointer;
+      color:var(--muted);
+    }
+    .modal-overlay.is-hidden{
+      display:none;
     }
     @media (max-width: 900px){
       main{padding:18px;}
@@ -611,7 +712,26 @@
           <tfoot>
             <tr id="sumExtraRow">
               <td></td>
-              <td>Summe Zusatz</td>
+              <td class="summary-label">IST VK Zusatz</td>
+              <td data-month-total="0">0,00</td>
+              <td data-month-total="1">0,00</td>
+              <td data-month-total="2">0,00</td>
+              <td data-month-total="3">0,00</td>
+              <td data-month-total="4">0,00</td>
+              <td data-month-total="5">0,00</td>
+              <td data-month-total="6">0,00</td>
+              <td data-month-total="7">0,00</td>
+              <td data-month-total="8">0,00</td>
+              <td data-month-total="9">0,00</td>
+              <td data-month-total="10">0,00</td>
+              <td data-month-total="11">0,00</td>
+              <td data-total-average>0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr id="sumMainInExtraRow">
+              <td></td>
+              <td class="summary-label">IST VK Haupt</td>
               <td data-month-total="0">0,00</td>
               <td data-month-total="1">0,00</td>
               <td data-month-total="2">0,00</td>
@@ -630,7 +750,7 @@
             </tr>
             <tr id="sumCombinedRow">
               <td></td>
-              <td>Abschluss (Haupt + Zusatz)</td>
+              <td class="summary-label">IST VK (Haupt + Zusatz)</td>
               <td data-month-total="0">0,00</td>
               <td data-month-total="1">0,00</td>
               <td data-month-total="2">0,00</td>
@@ -647,9 +767,49 @@
               <td></td>
               <td></td>
             </tr>
+            <tr id="sollwertRow">
+              <td></td>
+              <td class="summary-label">SOLL VK</td>
+              <td data-soll-month="0">0,00</td>
+              <td data-soll-month="1">0,00</td>
+              <td data-soll-month="2">0,00</td>
+              <td data-soll-month="3">0,00</td>
+              <td data-soll-month="4">0,00</td>
+              <td data-soll-month="5">0,00</td>
+              <td data-soll-month="6">0,00</td>
+              <td data-soll-month="7">0,00</td>
+              <td data-soll-month="8">0,00</td>
+              <td data-soll-month="9">0,00</td>
+              <td data-soll-month="10">0,00</td>
+              <td data-soll-month="11">0,00</td>
+              <td data-soll-average>0,00</td>
+              <td class="sollwert-cell">
+                <button id="openSollwertModal" class="button app-button secondary" type="button">Sollwertberechnung</button>
+              </td>
+              <td></td>
+            </tr>
+            <tr id="istSollRow">
+              <td></td>
+              <td class="summary-label">IST VK / SOLL VK</td>
+              <td data-ist-soll-month="0">0,00</td>
+              <td data-ist-soll-month="1">0,00</td>
+              <td data-ist-soll-month="2">0,00</td>
+              <td data-ist-soll-month="3">0,00</td>
+              <td data-ist-soll-month="4">0,00</td>
+              <td data-ist-soll-month="5">0,00</td>
+              <td data-ist-soll-month="6">0,00</td>
+              <td data-ist-soll-month="7">0,00</td>
+              <td data-ist-soll-month="8">0,00</td>
+              <td data-ist-soll-month="9">0,00</td>
+              <td data-ist-soll-month="10">0,00</td>
+              <td data-ist-soll-month="11">0,00</td>
+              <td data-ist-soll-average>0,00</td>
+              <td></td>
+              <td></td>
+            </tr>
             <tr id="planRow">
               <td></td>
-              <td>Wirtschaftsplan (VK)</td>
+              <td class="summary-label">Wirtschaftsplan (VK)</td>
               <td data-plan-month="0">0,00</td>
               <td data-plan-month="1">0,00</td>
               <td data-plan-month="2">0,00</td>
@@ -668,7 +828,7 @@
             </tr>
             <tr id="planDeviationRow">
               <td></td>
-              <td>Abweichung zum Wirtschaftsplan</td>
+              <td class="summary-label">Abweichung zum Wirtschaftsplan</td>
               <td data-deviation-month="0">0,00</td>
               <td data-deviation-month="1">0,00</td>
               <td data-deviation-month="2">0,00</td>
@@ -685,31 +845,42 @@
               <td></td>
               <td></td>
             </tr>
-            <tr id="sollwertRow">
-              <td></td>
-              <td>Sollwertberechnung</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td class="sollwert-cell">
-                <button class="button app-button secondary" type="button">Sollwertberechnung</button>
-              </td>
-            </tr>
           </tfoot>
         </table>
       </div>
     </section>
+
+    <div id="sollwertModal" class="modal-overlay is-hidden" role="dialog" aria-modal="true" aria-labelledby="sollwertTitle">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="sollwertTitle" class="modal-title">Sollwertberechnung</h3>
+          <button class="modal-close" type="button" data-modal-close onclick="window.__closeSollwertModal && window.__closeSollwertModal()" aria-label="Fenster schliessen">x</button>
+        </div>
+        <div class="modal-form">
+          <label>
+            Arbeitsplatzstunden pro Jahr
+            <input id="sollHoursInput" class="modal-input" type="number" step="0.01" inputmode="decimal" />
+          </label>
+          <label>
+            Jahresarbeitszeit pro VK
+            <input id="sollAnnualInput" class="modal-input" type="number" step="0.01" inputmode="decimal" />
+          </label>
+          <div class="modal-result">
+            Ergebnis SOLL VK:
+            <span id="sollResultValue">0,00</span>
+          </div>
+          <label>
+            Direktwert (Zahlwertfenster)
+            <input id="sollDirectInput" class="modal-input" type="number" step="0.01" inputmode="decimal" />
+          </label>
+          <span class="modal-note">Direktwert ueberschreibt die Arbeitsplatzmethode.</span>
+        </div>
+        <div class="modal-actions">
+          <button id="saveSollwert" class="btn" type="button">Speichern</button>
+          <button class="btn secondary" type="button" data-modal-close onclick="window.__closeSollwertModal && window.__closeSollwertModal()">Schliessen</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="../assets/items/stellenplan.logic.js"></script>
   </template>
