@@ -70,6 +70,12 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const ABSENCE_CODES = ["MS", "EZ", "KOL"];
+function normalizeAbsenceCode(value) {
+  const code = String(value || "").trim().toUpperCase();
+  return ABSENCE_CODES.includes(code) ? code : "";
+}
+
 function formatNumber(value) {
   return numberFormat.format(normalizeNumber(value));
 }
@@ -218,6 +224,7 @@ function normalizeEmployeeRow(row) {
     qualificationId: row.qualificationId || "",
     optionalQualifications: Array.from(new Set([...optional, ...primary])).filter(Boolean),
     months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths(),
+    absences: Array.isArray(row.absences) ? row.absences.map(normalizeAbsenceCode) : buildEmptyMonths().map(() => ""),
     isHidden: Boolean(row.isHidden)
   };
 }
@@ -233,6 +240,7 @@ function normalizeExtraRow(row) {
     qualificationId: row.qualificationId || "",
     optionalQualifications: Array.from(new Set([...optional, ...primary])).filter(Boolean),
     months: Array.isArray(row.months) ? row.months.map(normalizeNumber) : buildEmptyMonths(),
+    absences: Array.isArray(row.absences) ? row.absences.map(normalizeAbsenceCode) : buildEmptyMonths().map(() => ""),
     isHidden: Boolean(row.isHidden)
   };
 }
@@ -245,7 +253,8 @@ function serializeRows(rows, type) {
     category: type === "extra" ? row.category : undefined,
     qualificationId: row.optionalQualifications && row.optionalQualifications.length ? row.optionalQualifications[0] : null,
     optionalQualifications: Array.isArray(row.optionalQualifications) ? row.optionalQualifications : [],
-    months: row.months.map((value) => normalizeNumber(value))
+    months: row.months.map((value) => normalizeNumber(value)),
+    absences: Array.isArray(row.absences) ? row.absences.map(normalizeAbsenceCode) : buildEmptyMonths().map(() => "")
   }));
 }
 
@@ -258,6 +267,7 @@ function createBlankEmployee() {
     qualificationId: "",
     optionalQualifications: [],
     months: buildEmptyMonths(),
+    absences: buildEmptyMonths().map(() => ""),
     isHidden: false
   };
 }
@@ -271,6 +281,7 @@ function createBlankExtra(label = "") {
     qualificationId: "",
     optionalQualifications: [],
     months: buildEmptyMonths(),
+    absences: buildEmptyMonths().map(() => ""),
     isHidden: false
   };
 }
@@ -460,7 +471,7 @@ function renderRows(tbody, rows, type) {
       ${MONTH_LABELS.map(
         (_, index) => `
         <td data-month-cell="${index}">
-          <input class="cell-input cell-input-number" data-field="month" data-month="${index}" type="text" inputmode="decimal" value="${formatInputValue(row.months[index])}" />
+          <input class="cell-input cell-input-number" data-field="month" data-month="${index}" type="text" inputmode="decimal" value="${formatInputValue(row.months[index], row.absences ? row.absences[index] : "")}" />
         </td>`
       ).join("")}
       <td class="avg-cell" data-avg-for="${row.uid}">${formatNumber(rowAverage(row.months))}</td>
@@ -657,7 +668,9 @@ function refreshTotals() {
   renderDeviationRow($(selectors.deviationRow), deviationMonths);
 }
 
-function formatInputValue(value) {
+function formatInputValue(value, absenceCode = "") {
+  const code = normalizeAbsenceCode(absenceCode);
+  if (code) return code;
   const numeric = normalizeNumber(value);
   if (!Number.isFinite(numeric)) return "0,00";
   return numberFormat.format(numeric);
@@ -771,7 +784,15 @@ function bindTableEvents(tbody, rows, type) {
     } else if (field === "month") {
       const index = Number.parseInt(target.dataset.month, 10);
       if (Number.isFinite(index)) {
-        row.months[index] = normalizeNumber(target.value);
+        const code = normalizeAbsenceCode(target.value);
+        if (code) {
+          row.absences[index] = code;
+          row.months[index] = 0;
+          target.value = code;
+        } else {
+          row.absences[index] = "";
+          row.months[index] = normalizeNumber(target.value);
+        }
       }
     }
     updateAverages(rows, tbody);
@@ -881,7 +902,14 @@ function setFocusedMonth(index) {
 }
 
 function copyRowForward(row, startIndex) {
+  const code = normalizeAbsenceCode(row.absences && row.absences[startIndex]);
+  if (code) {
+    row.absences = row.absences.map((current, idx) => (idx >= startIndex ? code : normalizeAbsenceCode(current)));
+    row.months = row.months.map((current, idx) => (idx >= startIndex ? 0 : normalizeNumber(current)));
+    return;
+  }
   const value = normalizeNumber(row.months[startIndex]);
+  row.absences = row.absences.map((current, idx) => (idx >= startIndex ? "" : normalizeAbsenceCode(current)));
   row.months = row.months.map((current, idx) => (idx >= startIndex ? value : normalizeNumber(current)));
 }
 

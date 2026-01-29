@@ -665,6 +665,13 @@
           return { key: normalized, raw: String(maybeTenant || "") };
         };
         const buildTenantSlug = (code) => normalizeTenantKey(code);
+        const pathTenantInfo = getPathTenantInfo();
+        const pathTenantKey = pathTenantInfo.key;
+        const pathTenantDisplay = pathTenantInfo.raw ? formatTenantDisplay(pathTenantInfo.raw) : "";
+        if (pathTenantDisplay) {
+          setTenantPill(pathTenantDisplay);
+          sessionStorage.setItem("tenant_code", pathTenantDisplay);
+        }
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = urlParams.get("devTenant");
         const accessEmail = await getAccessEmail();
@@ -705,12 +712,6 @@
         const activeTenantId = Number.isFinite(storedTenant)
           ? storedTenant
           : (tenantData.tenant && tenantData.tenant.id) ? tenantData.tenant.id : (tenants[0] && tenants[0].id);
-        const pathTenantInfo = getPathTenantInfo();
-        const pathTenantKey = pathTenantInfo.key;
-        if (pathTenantInfo.raw) {
-          setTenantPill(pathTenantInfo.raw.toUpperCase());
-          sessionStorage.setItem("tenant_code", pathTenantInfo.raw.toUpperCase());
-        }
         const matchedPathTenant = pathTenantKey
           ? tenants.find((t) => normalizeTenantKey(t.code || t.name) === pathTenantKey)
           : null;
@@ -725,7 +726,9 @@
           sessionStorage.setItem("tenant_id", String(resolvedTenantId));
         }
         const activeTenant = tenants.find((t) => t.id === resolvedTenantId) || tenants[0];
-        setTenantPill(activeTenant ? (activeTenant.name || activeTenant.code) : "Demo");
+        if (!pathTenantDisplay && activeTenant && (activeTenant.name || activeTenant.code)) {
+          setTenantPill(activeTenant.name || activeTenant.code);
+        }
 
         const needsTenantRedirect = !pathTenantKey && activeTenant;
         if (needsTenantRedirect) {

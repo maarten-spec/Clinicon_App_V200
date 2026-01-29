@@ -17,6 +17,7 @@ const QUALIFICATION_SEED = [
   { code: "REQ_PFK", label: "Pflegefachkraft" },
   { code: "REQ_PFA", label: "Pflegefachassistenz" },
   { code: "REQ_UK", label: "Ungelernte Kraft" },
+  { code: "REQ_MFA", label: "MFA" },
   { code: "FACH_INT", label: "Fachpflegekraft fuer Intensivpflege und Anaesthesie" },
   { code: "FACH_OP", label: "Fachpflegekraft fuer OP-Dienst / perioperative Pflege" },
   { code: "FACH_ONK", label: "Fachpflegekraft fuer Onkologie" },
@@ -294,6 +295,18 @@ async function handleGetStellenplan(request, env) {
   }
   const monthValues = await db.prepare(monthSql).bind(...monthParams).all();
 
+  let flagsSql = "SELECT employee_id, month, code FROM employee_month_flags WHERE year=?";
+  const flagsParams = [year];
+  if (tenantId) {
+    flagsSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    flagsParams.push(tenantId);
+  }
+  if (departmentId) {
+    flagsSql += " AND (department_id=? OR department_id IS NULL)";
+    flagsParams.push(departmentId);
+  }
+  const flagsRows = await db.prepare(flagsSql).bind(...flagsParams).all();
+
   const scopeKey = buildScopeKey(tenantId, departmentId);
   const planTargets = await db
     .prepare("SELECT month, value, scope FROM wirtschaftsplan_targets WHERE year=? AND scope=?")
@@ -314,6 +327,16 @@ async function handleGetStellenplan(request, env) {
     months[index] = normalizeNumber(row.value);
   }
 
+  const flagsMap = new Map();
+  for (const row of flagsRows.results || []) {
+    if (!flagsMap.has(row.employee_id)) {
+      flagsMap.set(row.employee_id, buildMonthArray(""));
+    }
+    const list = flagsMap.get(row.employee_id);
+    const index = Math.max(1, Math.min(MONTH_COUNT, Number(row.month))) - 1;
+    list[index] = String(row.code || "").toUpperCase();
+  }
+
   const mainRows = [];
   const extraRows = [];
 
@@ -326,7 +349,8 @@ async function handleGetStellenplan(request, env) {
       category: normalizeText(row.extra_category),
       qualificationId: row.qualification_id || null,
       optionalQualifications: optionalMap.get(row.id) || [],
-      months
+      months,
+      absences: flagsMap.get(row.id) || buildMonthArray("")
     };
     if (row.category === CATEGORY_EXTRA) {
       extraRows.push(payload);
@@ -470,12 +494,33 @@ async function handlePostStellenplan(request, env) {
   const departmentId = deptContext.department ? deptContext.department.id : null;
   const scopeKey = buildScopeKey(tenantId, departmentId);
 
+  const upsertFlag = async (employeeId, year, month, code, value, tenantId, departmentId) => {
+    await db
+      .prepare(
+        "INSERT INTO employee_month_flags (employee_id, year, month, code, value, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+          "ON CONFLICT(employee_id, year, month) DO UPDATE SET code=excluded.code, value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
+      )
+      .bind(employeeId, year, month, code, value, tenantId || null, departmentId || null)
+      .run();
+  };
+  const clearFlag = async (employeeId, year, month) => {
+    await db
+      .prepare("DELETE FROM employee_month_flags WHERE employee_id=? AND year=? AND month=?")
+      .bind(employeeId, year, month)
+      .run();
+  };
+
+  const normalizeFlagCode = (value) => String(value || "").trim().toUpperCase();
+  const isFlagCode = (code) => code === "MS" || code === "EZ" || code === "KOL";
+
   // Upsert employees + month values
   for (const row of employees) {
     const employeeId = await resolveEmployeeId(db, row, CATEGORY_MAIN, tenantId, departmentId);
     await saveOptionalQualifications(db, employeeId, row.optionalQualifications);
     const months = Array.isArray(row.months) ? row.months : buildMonthArray(0);
+    const absences = Array.isArray(row.absences) ? row.absences : [];
     for (const month of MONTHS) {
+      const absenceCode = normalizeFlagCode(absences[month - 1]);
       const value = normalizeNumber(months[month - 1] ?? 0);
       await db
         .prepare(
@@ -484,6 +529,11 @@ async function handlePostStellenplan(request, env) {
         )
         .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
         .run();
+      if (isFlagCode(absenceCode)) {
+        await upsertFlag(employeeId, year, month, absenceCode, 1, tenantId, departmentId);
+      } else {
+        await clearFlag(employeeId, year, month);
+      }
     }
   }
 
@@ -491,7 +541,9 @@ async function handlePostStellenplan(request, env) {
     const employeeId = await resolveEmployeeId(db, row, CATEGORY_EXTRA, tenantId, departmentId);
     await saveOptionalQualifications(db, employeeId, row.optionalQualifications);
     const months = Array.isArray(row.months) ? row.months : buildMonthArray(0);
+    const absences = Array.isArray(row.absences) ? row.absences : [];
     for (const month of MONTHS) {
+      const absenceCode = normalizeFlagCode(absences[month - 1]);
       const value = normalizeNumber(months[month - 1] ?? 0);
       await db
         .prepare(
@@ -500,6 +552,11 @@ async function handlePostStellenplan(request, env) {
         )
         .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
         .run();
+      if (isFlagCode(absenceCode)) {
+        await upsertFlag(employeeId, year, month, absenceCode, 1, tenantId, departmentId);
+      } else {
+        await clearFlag(employeeId, year, month);
+      }
     }
   }
 
@@ -737,8 +794,15 @@ async function handleGetInsights(request, env) {
     )
     .all();
 
-  const qualRows = await db.prepare("SELECT id, label FROM qualifications WHERE is_active=1").all();
-  const qualMap = new Map((qualRows.results || []).map((row) => [row.id, row.label]));
+  const qualRows = await db.prepare("SELECT id, code, label FROM qualifications WHERE is_active=1").all();
+  const qualMap = new Map();
+  for (const row of qualRows.results || []) {
+    qualMap.set(row.id, {
+      code: row.code || "",
+      label: row.label || "",
+      key: normalizeText(row.code || row.label || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    });
+  }
 
   const mixRows = await db
     .prepare(
@@ -751,12 +815,63 @@ async function handleGetInsights(request, env) {
     .all();
 
   const mixMap = new Map();
+  const mixTotals = new Map();
   for (const row of mixRows.results || []) {
     const existing = mixMap.get(row.station_id);
     const total = normalizeNumber(row.total);
     if (!existing || total > existing.total) {
       mixMap.set(row.station_id, { qualification_id: row.qualification_id, total });
     }
+    if (!mixTotals.has(row.station_id)) {
+      mixTotals.set(row.station_id, new Map());
+    }
+    const stationMap = mixTotals.get(row.station_id);
+    stationMap.set(row.qualification_id, (stationMap.get(row.qualification_id) || 0) + total);
+  }
+
+  const matchAny = (tokens, patterns) => patterns.some((pattern) => tokens.some((token) => token === pattern || token.includes(pattern)));
+  const mandatoryDefs = [
+    { code: "PFK", label: "Pflegefachkraft", patterns: ["reqpfk", "pflegefachkraft", "pfk"] },
+    { code: "PFA", label: "Pflegefachassistenz", patterns: ["reqpfa", "pflegefachassistenz", "pfa"] },
+    { code: "UK", label: "Ungelernte Kraft", patterns: ["requk", "ungelerntekraft", "ungelernte", "uk"] },
+    { code: "MFA", label: "MFA", patterns: ["reqmfa", "mfa"] }
+  ];
+  const mandatoryTotals = new Map(mandatoryDefs.map((item) => [item.code, { ...item, soll: 0, ist: 0 }]));
+
+  const deptRows = tenantId
+    ? await db.prepare("SELECT id, name, code FROM departments WHERE tenant_id=? AND is_active=1").bind(tenantId).all()
+    : { results: [] };
+  const normalizeKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const deptNameMap = new Map();
+  for (const row of deptRows.results || []) {
+    const keyName = normalizeKey(row.name);
+    const keyCode = normalizeKey(row.code);
+    if (keyName) deptNameMap.set(keyName, row.id);
+    if (keyCode) deptNameMap.set(keyCode, row.id);
+  }
+
+  const absenceRows = await db
+    .prepare(
+      "SELECT department_id, code, SUM(value) AS total " +
+        "FROM employee_month_flags WHERE year=? AND month=? " +
+        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        "GROUP BY department_id, code"
+    )
+    .bind(...[year, month, ...(tenantId ? [tenantId] : [])])
+    .all();
+
+  const absenceByDept = new Map();
+  for (const row of absenceRows.results || []) {
+    const deptId = Number.isFinite(row.department_id) ? row.department_id : null;
+    const bucket = deptId || null;
+    if (!absenceByDept.has(bucket)) {
+      absenceByDept.set(bucket, { ms: 0, ez: 0, kol: 0 });
+    }
+    const agg = absenceByDept.get(bucket);
+    const code = String(row.code || "").toUpperCase();
+    if (code === "MS") agg.ms += normalizeNumber(row.total);
+    if (code === "EZ") agg.ez += normalizeNumber(row.total);
+    if (code === "KOL") agg.kol += normalizeNumber(row.total);
   }
 
     const stations = (stationRows.results || []).map((row) => {
@@ -764,14 +879,58 @@ async function handleGetInsights(request, env) {
       const vkIst = normalizeNumber(row.vk_ist);
       const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
       const mix = mixMap.get(row.id);
-      const mixLabel = mix ? (qualMap.get(mix.qualification_id) || "Qualifikation") : "Keine Angabe";
+      const mixInfo = mix ? qualMap.get(mix.qualification_id) : null;
+      const mixLabel = mixInfo ? (mixInfo.label || mixInfo.code || "Qualifikation") : "Keine Angabe";
+      const stationQuals = mixTotals.get(row.id) || new Map();
+      let mandatorySum = 0;
+      for (const [qualId, total] of stationQuals.entries()) {
+        const info = qualMap.get(qualId) || { code: "", label: "", key: "" };
+        const tokens = [
+          (info.code || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+          (info.label || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+          info.key || ""
+        ].filter(Boolean);
+        const mandatory = mandatoryDefs.find((def) => matchAny(tokens, def.patterns));
+        if (mandatory) {
+          mandatorySum += total;
+          const agg = mandatoryTotals.get(mandatory.code);
+          if (agg) {
+            agg.soll += total;
+            agg.ist += total;
+          }
+        }
+      }
+      const qualCoverage = vkSoll ? (mandatorySum / vkSoll) * 100 : 0;
+      const fulfillment = vkSoll ? (vkIst / vkSoll) * 100 : 0;
+      const stationKey = normalizeKey(row.name || row.code || "");
+      const deptId = deptNameMap.get(stationKey) || null;
+      const abs = absenceByDept.get(deptId) || { ms: 0, ez: 0, kol: 0 };
       return {
         station: normalizeText(row.name || row.code || "Station"),
         beds_planned: vkSoll,
         beds_occupied: vkIst,
         occupancy_pct: occupancy,
         qual_mix_label: normalizeText(mixLabel),
-        variance_hours: vkIst - vkSoll
+        variance_hours: vkIst - vkSoll,
+        soll_vza: vkSoll,
+        ist_vza: vkIst,
+        fulfillment_pct: fulfillment,
+        qual_coverage_pct: qualCoverage,
+        mutterschutz_vza: abs.ms,
+        elternzeit_vza: abs.ez,
+        kol_vza: abs.kol
+      };
+    });
+
+    const mandatoryQuals = Array.from(mandatoryTotals.values()).map((item) => {
+      const totalSoll = item.soll;
+      const coverage = totalSoll ? (item.ist / totalSoll) * 100 : 0;
+      return {
+        code: item.code,
+        label: item.label,
+        soll_vza: item.soll,
+        ist_vza: item.ist,
+        coverage_pct: coverage
       };
     });
 
@@ -873,6 +1032,7 @@ async function handleGetInsights(request, env) {
       source: "d1"
     },
     stations,
+    mandatory_quals: mandatoryQuals,
     trend,
     shift_mix: [
       { label: "Frueh", value: 0 },

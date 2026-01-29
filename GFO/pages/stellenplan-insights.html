@@ -446,8 +446,73 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   }
   .insights-tab .kpi-grid{
     display:grid;
-    grid-template-columns:repeat(4, minmax(0,1fr));
+    grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
     gap:14px;
+  }
+  .insights-tab .head-card{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  .insights-tab .head-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .insights-tab .meta-item{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 14px;
+    min-width:150px;
+  }
+  .insights-tab .meta-item span{
+    display:block;
+    font-size:.75rem;
+    color:var(--muted);
+  }
+  .insights-tab .meta-item strong{
+    display:block;
+    font-size:1rem;
+  }
+  .insights-tab .kpi-quickcheck .kpi-card .kpi-value{
+    font-size:1.5rem;
+  }
+  .insights-tab .qual-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:14px;
+  }
+  .insights-tab .qual-card{
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px;
+    background:var(--surface-2);
+    display:grid;
+    gap:8px;
+  }
+  .insights-tab .qual-title{
+    font-weight:700;
+    font-size:.95rem;
+  }
+  .insights-tab .qual-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:.9rem;
+  }
+  .insights-tab .table-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .insights-tab .table-controls select{
+    padding:6px 10px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:#fff;
+    font-family:var(--font-base);
   }
   .insights-tab .kpi-card{
     background:var(--surface);
@@ -671,22 +736,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   <template id="page-content">
         <section class="hero insights-hero" data-tabs="insights">
           <div>
-            <h2>Live-Visualisierung fuer den Stellenplan</h2>
-            <p>Dieses Cockpit kombiniert Auslastung, Qualifikationsmix und Personalabweichung in einem interaktiven Ueberblick. Die Daten werden aktuell aus einem Demo-Datensatz geladen und sind bereit fuer die D1-Anbindung.</p>
-          </div>
-          <div class="hero-cards">
-              <div class="hero-card">
-                <strong id="heroBeds">--</strong>
-                <span>VK Gesamt Haus IST</span>
-              </div>
-              <div class="hero-card">
-                <strong id="heroOccupancy">--</strong>
-                <span>VK Gesamt Haus SOLL</span>
-              </div>
-            <div class="hero-card">
-              <strong id="heroVariance">--</strong>
-              <span>Personalabweichung (Std)</span>
-            </div>
+            <h2>Stellenplan Insights</h2>
+            <p>Steuerungsrelevante Kennzahlen fuer das Pflegecontrolling. Alle Werte stammen aus dem Stellenplan des aktiven Mandanten.</p>
           </div>
         </section>
 
@@ -719,7 +770,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <button class="timeslicer-btn" type="button" data-range="year" data-label="Jahr">Jahr</button>
                 </div>
                 <div class="timeslicer-dept">
-                  <label for="insightsDeptSelect">Abteilung</label>
+                  <label for="insightsDeptSelect">Abteilung / Station</label>
                   <select id="insightsDeptSelect">
                     <option value="">Gesamtes Haus</option>
                   </select>
@@ -735,155 +786,167 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         </div>
 
         <div class="insights-tab" data-tabs="insights">
-        <section class="kpi-grid">
+          <section class="card head-card">
+            <div class="head-meta">
+              <div class="meta-item">
+                <span>Verbund</span>
+                <strong id="insightsVerbund">--</strong>
+              </div>
+              <div class="meta-item">
+                <span>Mandant</span>
+                <strong id="insightsMandant">--</strong>
+              </div>
+              <div class="meta-item">
+                <span>Filter</span>
+                <strong id="insightsFilterLabel">Gesamtes Haus</strong>
+              </div>
+            </div>
+            <div class="card-sub">Filter wirken konsistent auf alle KPIs und Tabellen.</div>
+          </section>
+
+          <section class="kpi-grid kpi-quickcheck">
             <div class="kpi-card kpi-tone-teal">
-              <h4>VK Gesamt Haus IST</h4>
-              <div class="kpi-value" id="kpiBeds">--</div>
-              <div class="kpi-sub" id="kpiBedsSub">VK Gesamt Haus SOLL: --</div>
-              <div class="kpi-progress"><span id="kpiBedsProgress"></span></div>
+              <h4>Stellenplan-Erfüllungsgrad</h4>
+              <div class="kpi-value" id="kpiFulfillment">--</div>
+              <div class="kpi-sub" id="kpiFulfillmentSub">Ist-VZÄ / Soll-VZÄ</div>
+              <div class="kpi-progress"><span id="kpiFulfillmentProgress"></span></div>
             </div>
             <div class="kpi-card">
-              <h4>VK Gesamt Haus IST</h4>
-              <div class="kpi-value" id="kpiOccupancy">--</div>
-              <div class="kpi-sub" id="kpiOccupancySub">Trend: --</div>
-              <div class="kpi-progress"><span id="kpiOccupancyProgress"></span></div>
+              <h4>Pflichtqualifikations-Abdeckung</h4>
+              <div class="kpi-value" id="kpiQualCoverage">--</div>
+              <div class="kpi-sub" id="kpiQualCoverageSub">Erfüllungsgrad</div>
+              <div class="kpi-progress"><span id="kpiQualCoverageProgress"></span></div>
             </div>
             <div class="kpi-card kpi-tone-orange">
-              <h4>Qualifikationsmix offen</h4>
-              <div class="kpi-value" id="kpiViolations">--</div>
-              <div class="kpi-sub" id="kpiViolationsSub">Ohne Qualifikationsmix</div>
-              <div class="kpi-progress"><span id="kpiViolationsProgress"></span></div>
+              <h4>Mutterschutz</h4>
+              <div class="kpi-value" id="kpiMutterschutz">--</div>
+              <div class="kpi-sub" id="kpiMutterschutzSub">VZÄ</div>
+              <div class="kpi-progress"><span id="kpiMutterschutzProgress"></span></div>
             </div>
-          <div class="kpi-card kpi-tone-red">
-            <h4>Personalabweichung</h4>
-            <div class="kpi-value" id="kpiVariance">--</div>
-            <div class="kpi-sub" id="kpiVarianceSub">Ueber/Unterdeckung</div>
-            <div class="kpi-progress"><span id="kpiVarianceProgress"></span></div>
-          </div>
-        </section>
-        <section class="grid-two">
-          <div class="card">
-            <div class="card-header">
-              <h3>Trend: Auslastung &amp; Stunden</h3>
-              <span class="card-sub" id="trendSource">Quelle: Demo</span>
+            <div class="kpi-card">
+              <h4>Elternzeit</h4>
+              <div class="kpi-value" id="kpiElternzeit">--</div>
+              <div class="kpi-sub" id="kpiElternzeitSub">VZÄ</div>
+              <div class="kpi-progress"><span id="kpiElternzeitProgress"></span></div>
             </div>
-            <div class="chart-wrap">
-              <canvas id="trendChart"></canvas>
+            <div class="kpi-card kpi-tone-red">
+              <h4>KOL (krank ohne Lohn)</h4>
+              <div class="kpi-value" id="kpiKol">--</div>
+              <div class="kpi-sub" id="kpiKolSub">VZÄ</div>
+              <div class="kpi-progress"><span id="kpiKolProgress"></span></div>
             </div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-          <h3>Top Stationen (VK Gesamt Haus IST)</h3>
-              <span class="card-sub">Klickbar</span>
-            </div>
-            <div class="chart-wrap">
-              <canvas id="topStationsChart"></canvas>
-            </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="grid-three">
-          <div class="card">
+          <section class="card qual-section">
             <div class="card-header">
-              <h3>Qualifikationsmix</h3>
-              <span class="card-sub">Alle Stationen</span>
-            </div>
-            <div class="chart-wrap small">
-              <canvas id="statusChart"></canvas>
-            </div>
-            <div class="status-list" id="statusList"></div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <h3>Schichtmix</h3>
-              <span class="card-sub">Ist-Stunden</span>
-            </div>
-            <div class="chart-wrap small">
-              <canvas id="shiftChart"></canvas>
-            </div>
-            <div class="status-list">
-              <div class="status-item"><span>Frueh</span><span id="shiftEarly">--</span></div>
-              <div class="status-item"><span>Spaet</span><span id="shiftLate">--</span></div>
-              <div class="status-item"><span>Nacht</span><span id="shiftNight">--</span></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <h3>KPI Schnellcheck</h3>
-              <span class="card-sub">Risikoklassen</span>
-            </div>
-            <div class="status-list">
-              <div class="status-item">
-                <span>Stationsabdeckung</span>
-                <span class="status-pill status-ok" id="kpiCoverage">OK</span>
-              </div>
-              <div class="status-item">
-                <span>Schichtbalance</span>
-                <span class="status-pill status-warn" id="kpiShiftBalance">Warnung</span>
-              </div>
-              <div class="status-item">
-                <span>Quali-Mix offen</span>
-                <span class="status-pill status-bad" id="kpiRisk">Hoch</span>
+              <div>
+                <h3>Pflichtqualifikationen</h3>
+                <span class="card-sub">SOLL/IST je Pflichtqualifikation</span>
               </div>
             </div>
-            <p class="data-note" id="dataNote">Datenquelle: Demo-Datensatz.</p>
-          </div>
-        </section>
-        <section class="table-grid">
-          <div class="card">
+            <div class="qual-grid">
+              <div class="qual-card">
+                <div class="qual-title">Pflegefachkraft (PFK)</div>
+                <div class="qual-row">
+                  <span>SOLL</span>
+                  <strong id="qualPfkSoll">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>IST</span>
+                  <strong id="qualPfkIst">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>Abdeckung</span>
+                  <strong id="qualPfkCov" class="badge neutral">--</strong>
+                </div>
+              </div>
+              <div class="qual-card">
+                <div class="qual-title">Pflegefachassistenz (PFA)</div>
+                <div class="qual-row">
+                  <span>SOLL</span>
+                  <strong id="qualPfaSoll">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>IST</span>
+                  <strong id="qualPfaIst">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>Abdeckung</span>
+                  <strong id="qualPfaCov" class="badge neutral">--</strong>
+                </div>
+              </div>
+              <div class="qual-card">
+                <div class="qual-title">Ungelernte Kraft (UK)</div>
+                <div class="qual-row">
+                  <span>SOLL</span>
+                  <strong id="qualUkSoll">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>IST</span>
+                  <strong id="qualUkIst">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>Abdeckung</span>
+                  <strong id="qualUkCov" class="badge neutral">--</strong>
+                </div>
+              </div>
+              <div class="qual-card">
+                <div class="qual-title">MFA</div>
+                <div class="qual-row">
+                  <span>SOLL</span>
+                  <strong id="qualMfaSoll">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>IST</span>
+                  <strong id="qualMfaIst">--</strong>
+                </div>
+                <div class="qual-row">
+                  <span>Abdeckung</span>
+                  <strong id="qualMfaCov" class="badge neutral">--</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
             <div class="card-header">
-              <h3>Stationsuebersicht</h3>
-              <span class="card-sub">Klicke eine Station fuer Details</span>
+              <div>
+                <h3>Stationsübersicht</h3>
+                <span class="card-sub">Klick auf eine Station filtert die Seite.</span>
+              </div>
+              <div class="table-controls">
+                <label>Sortieren nach
+                  <select id="stationsSort">
+                    <option value="fulfillment-desc">Erfüllungsgrad (absteigend)</option>
+                    <option value="fulfillment-asc">Erfüllungsgrad (aufsteigend)</option>
+                    <option value="qual-desc">Pflichtqualifikation (absteigend)</option>
+                    <option value="qual-asc">Pflichtqualifikation (aufsteigend)</option>
+                    <option value="kol-desc">KOL (hoch zuerst)</option>
+                    <option value="kol-asc">KOL (niedrig zuerst)</option>
+                  </select>
+                </label>
+              </div>
             </div>
             <div style="overflow-x:auto">
               <table>
                 <thead>
                   <tr>
-                    <th>Station</th>
-                      <th>VK Gesamt Haus SOLL</th>
-                      <th>VK Gesamt Haus IST</th>
-                      <th>VK Gesamt Haus IST</th>
-                      <th>Qualifikationsmix</th>
-                    <th>Abw. Std</th>
+                    <th>Station / Abteilung</th>
+                    <th>Soll-VZÄ</th>
+                    <th>Ist-VZÄ</th>
+                    <th>Erfüllungsgrad</th>
+                    <th>Pflichtqualifikation</th>
+                    <th>Mutterschutz</th>
+                    <th>Elternzeit</th>
+                    <th>KOL</th>
                   </tr>
                 </thead>
                 <tbody id="stationsTable"></tbody>
               </table>
             </div>
-          </div>
-          <div class="card spotlight">
-            <div>
-              <div class="card-sub">Spotlight</div>
-              <h4 id="spotlightStation">--</h4>
-            </div>
-            <div class="spotlight-row">
-              <div class="spotlight-tile">
-                  <span>VK Gesamt Haus IST</span>
-                <strong id="spotlightOccupancy">--</strong>
-              </div>
-              <div class="spotlight-tile">
-                  <span>Qualifikationsmix</span>
-                <strong id="spotlightStatus">--</strong>
-              </div>
-              <div class="spotlight-tile">
-                  <span>VK Gesamt Haus SOLL</span>
-                <strong id="spotlightPlanned">--</strong>
-              </div>
-                <div class="spotlight-tile">
-                  <span>VK Gesamt Haus IST</span>
-                  <strong id="spotlightOccupied">--</strong>
-                </div>
-            </div>
-            <div class="spotlight-tile">
-              <span>Personalabweichung</span>
-              <div class="value" id="spotlightVariance">--</div>
-              <span id="spotlightVarianceLabel">--</span>
-            </div>
-            <p class="data-note">Hinweis: Im naechsten Schritt folgt die Anbindung an den Stellenplan-Import.</p>
-          </div>
-        </section>
-      
-      </div>
+            <p class="data-note" id="dataNote">Datenquelle: Demo-Datensatz.</p>
+          </section>
+        </div>
       <div data-tabs="dashboard">
         <div class="controls">
           <label>Station
@@ -1077,7 +1140,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       <div class="cockpit-grid" id="qualSummaryTiles"></div>
       <div class="qual-grid">
         <div class="qual-panel">
-          <h4 style="margin:0;">Aktuelle Abteilung</h4>
+              <h4 style="margin:0;">Aktuelle Abteilung/Station</h4>
           <div class="qual-table-wrap">
             <table id="qualDeptTable"></table>
           </div>
@@ -1135,7 +1198,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const SUPABASE_URL_STORAGE='clinicon_supabase_url';
     const SUPABASE_KEY_STORAGE='clinicon_supabase_key';
     const MONTHS=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-    const DEPT_ORDER=['Station 1','Station 2','Station 3','Station 4','Station 5','Station 6','Station 7','Endoskopie','OP','Sozialdienst','Pflegedienstleitung'];
+    const DEPT_ORDER=['Station 1','Station 2','Station 3','Station 4','Station 5','Station 6','Station 7','Station 8','EKG','OP','ZNA','Intensivstation','Endoskopie','Radiologie','Labor','Sozialdienst','Pflegedienstleitung'];
     const TABLE_EMP_BASE='stellenplan_employees';
     const DEFAULT_SUPABASE_URL='https://fqilehnixnsujefyrdcy.supabase.co';
     const DEFAULT_SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaWxlaG5peG5zdWplZnlyZGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MjIyNzUsImV4cCI6MjA3OTQ5ODI3NX0.Ml1J-YsID7_CXX7LbLZM4ayhWpV08FBSZc3rgVuwqt4';
@@ -1824,14 +1887,18 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       { date: "2026-01-05", occupancy_pct: 87, staffed_hours: 336, required_hours: 340 }
     ],
       stations: [
-        { station: "ITS", beds_planned: 13, beds_occupied: 12, occupancy_pct: 92.3, qual_mix_label: "Pflegefachkraft", variance_hours: -8.0 },
-        { station: "IMC", beds_planned: 10, beds_occupied: 9, occupancy_pct: 90.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -18.5 },
-        { station: "UC", beds_planned: 20, beds_occupied: 14, occupancy_pct: 70.0, qual_mix_label: "Pflegefachkraft", variance_hours: 5.0 },
-        { station: "Ortho", beds_planned: 28, beds_occupied: 23, occupancy_pct: 82.1, qual_mix_label: "Fachpflegekraft OP", variance_hours: -22.0 },
-        { station: "Kardiologie", beds_planned: 18, beds_occupied: 15, occupancy_pct: 83.3, qual_mix_label: "Pflegefachkraft", variance_hours: -4.0 },
-        { station: "Neuro", beds_planned: 16, beds_occupied: 13, occupancy_pct: 81.2, qual_mix_label: "Pflegefachassistenz", variance_hours: -9.5 },
-        { station: "Geriatrie", beds_planned: 22, beds_occupied: 20, occupancy_pct: 90.9, qual_mix_label: "Pflegefachkraft", variance_hours: 2.5 },
-        { station: "Chirurgie", beds_planned: 24, beds_occupied: 17, occupancy_pct: 70.8, qual_mix_label: "Fachpflegekraft OP", variance_hours: 6.0 }
+        { station: "Station 1", beds_planned: 20, beds_occupied: 16, occupancy_pct: 80.0, qual_mix_label: "Pflegefachkraft", variance_hours: -6.0 },
+        { station: "Station 2", beds_planned: 18, beds_occupied: 15, occupancy_pct: 83.3, qual_mix_label: "Pflegefachassistenz", variance_hours: -3.5 },
+        { station: "Station 3", beds_planned: 22, beds_occupied: 19, occupancy_pct: 86.4, qual_mix_label: "Pflegefachkraft", variance_hours: 1.0 },
+        { station: "Station 4", beds_planned: 16, beds_occupied: 12, occupancy_pct: 75.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -4.0 },
+        { station: "Station 5", beds_planned: 24, beds_occupied: 21, occupancy_pct: 87.5, qual_mix_label: "Pflegefachkraft", variance_hours: 2.5 },
+        { station: "Station 6", beds_planned: 14, beds_occupied: 10, occupancy_pct: 71.4, qual_mix_label: "Pflegefachassistenz", variance_hours: -5.0 },
+        { station: "Station 7", beds_planned: 26, beds_occupied: 22, occupancy_pct: 84.6, qual_mix_label: "Pflegefachkraft", variance_hours: 3.0 },
+        { station: "Station 8", beds_planned: 12, beds_occupied: 9, occupancy_pct: 75.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -2.5 },
+        { station: "OP", beds_planned: 10, beds_occupied: 8, occupancy_pct: 80.0, qual_mix_label: "Fachpflegekraft OP", variance_hours: -1.0 },
+        { station: "ZNA", beds_planned: 15, beds_occupied: 13, occupancy_pct: 86.7, qual_mix_label: "Notfallpflege", variance_hours: 0.5 },
+        { station: "Intensivstation", beds_planned: 13, beds_occupied: 12, occupancy_pct: 92.3, qual_mix_label: "Fachpflegekraft Intensiv", variance_hours: -2.0 },
+        { station: "Endoskopie", beds_planned: 8, beds_occupied: 6, occupancy_pct: 75.0, qual_mix_label: "Pflegefachkraft", variance_hours: -1.5 }
       ],
     shift_mix: [
       { label: "Frueh", value: 42 },
@@ -1853,37 +1920,41 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   };
 
   const elements = {
-      dataRange: document.getElementById("dataRange"),
-      rangeLabel: document.querySelector("[data-range-label]"),
-    trendSource: document.getElementById("trendSource"),
+    dataRange: document.getElementById("dataRange"),
+    rangeLabel: document.querySelector("[data-range-label]"),
     dataNote: document.getElementById("dataNote"),
-    heroBeds: document.getElementById("heroBeds"),
-    heroOccupancy: document.getElementById("heroOccupancy"),
-    heroVariance: document.getElementById("heroVariance"),
-    kpiBeds: document.getElementById("kpiBeds"),
-    kpiBedsSub: document.getElementById("kpiBedsSub"),
-    kpiBedsProgress: document.getElementById("kpiBedsProgress"),
-    kpiOccupancy: document.getElementById("kpiOccupancy"),
-    kpiOccupancySub: document.getElementById("kpiOccupancySub"),
-    kpiOccupancyProgress: document.getElementById("kpiOccupancyProgress"),
-    kpiViolations: document.getElementById("kpiViolations"),
-    kpiViolationsSub: document.getElementById("kpiViolationsSub"),
-    kpiViolationsProgress: document.getElementById("kpiViolationsProgress"),
-    kpiVariance: document.getElementById("kpiVariance"),
-    kpiVarianceSub: document.getElementById("kpiVarianceSub"),
-    kpiVarianceProgress: document.getElementById("kpiVarianceProgress"),
+    insightsVerbund: document.getElementById("insightsVerbund"),
+    insightsMandant: document.getElementById("insightsMandant"),
+    insightsFilterLabel: document.getElementById("insightsFilterLabel"),
+    kpiFulfillment: document.getElementById("kpiFulfillment"),
+    kpiFulfillmentSub: document.getElementById("kpiFulfillmentSub"),
+    kpiFulfillmentProgress: document.getElementById("kpiFulfillmentProgress"),
+    kpiQualCoverage: document.getElementById("kpiQualCoverage"),
+    kpiQualCoverageSub: document.getElementById("kpiQualCoverageSub"),
+    kpiQualCoverageProgress: document.getElementById("kpiQualCoverageProgress"),
+    kpiMutterschutz: document.getElementById("kpiMutterschutz"),
+    kpiMutterschutzSub: document.getElementById("kpiMutterschutzSub"),
+    kpiMutterschutzProgress: document.getElementById("kpiMutterschutzProgress"),
+    kpiElternzeit: document.getElementById("kpiElternzeit"),
+    kpiElternzeitSub: document.getElementById("kpiElternzeitSub"),
+    kpiElternzeitProgress: document.getElementById("kpiElternzeitProgress"),
+    kpiKol: document.getElementById("kpiKol"),
+    kpiKolSub: document.getElementById("kpiKolSub"),
+    kpiKolProgress: document.getElementById("kpiKolProgress"),
+    qualPfkSoll: document.getElementById("qualPfkSoll"),
+    qualPfkIst: document.getElementById("qualPfkIst"),
+    qualPfkCov: document.getElementById("qualPfkCov"),
+    qualPfaSoll: document.getElementById("qualPfaSoll"),
+    qualPfaIst: document.getElementById("qualPfaIst"),
+    qualPfaCov: document.getElementById("qualPfaCov"),
+    qualUkSoll: document.getElementById("qualUkSoll"),
+    qualUkIst: document.getElementById("qualUkIst"),
+    qualUkCov: document.getElementById("qualUkCov"),
+    qualMfaSoll: document.getElementById("qualMfaSoll"),
+    qualMfaIst: document.getElementById("qualMfaIst"),
+    qualMfaCov: document.getElementById("qualMfaCov"),
     stationsTable: document.getElementById("stationsTable"),
-    statusList: document.getElementById("statusList"),
-    shiftEarly: document.getElementById("shiftEarly"),
-    shiftLate: document.getElementById("shiftLate"),
-    shiftNight: document.getElementById("shiftNight"),
-    spotlightStation: document.getElementById("spotlightStation"),
-    spotlightOccupancy: document.getElementById("spotlightOccupancy"),
-    spotlightStatus: document.getElementById("spotlightStatus"),
-    spotlightPlanned: document.getElementById("spotlightPlanned"),
-    spotlightOccupied: document.getElementById("spotlightOccupied"),
-    spotlightVariance: document.getElementById("spotlightVariance"),
-    spotlightVarianceLabel: document.getElementById("spotlightVarianceLabel")
+    stationsSort: document.getElementById("stationsSort")
   };
   const chartColors = {
     accent: "#1c6bff",
@@ -1898,113 +1969,210 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   let currentStations = [];
   let selectedStation = null;
 
-  function computeKpis(stations) {
-      const bedsPlanned = stations.reduce((sum, row) => sum + row.beds_planned, 0);
-      const bedsOccupied = stations.reduce((sum, row) => sum + row.beds_occupied, 0);
-      const occupancy = bedsPlanned ? (bedsOccupied / bedsPlanned) * 100 : 0;
-      const variance = stations.reduce((sum, row) => sum + row.variance_hours, 0);
-      const missingMix = stations.filter((row) => !row.qual_mix_label || row.qual_mix_label === "Keine Angabe").length;
-      return { bedsPlanned, bedsOccupied, occupancy, variance, violations: missingMix };
-    }
-  
-    function buildMixCounts(stations) {
-      return stations.reduce((acc, row) => {
-        const label = row.qual_mix_label || "Keine Angabe";
-        acc[label] = (acc[label] || 0) + 1;
-        return acc;
-      }, {});
-    }
+  const normalizeNumber = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
 
-    function renderKpis(data) {
-      const kpis = computeKpis(data.stations);
-      elements.heroBeds.textContent = fmtInt.format(kpis.bedsOccupied);
-      elements.heroOccupancy.textContent = fmtInt.format(kpis.bedsPlanned);
-      elements.heroVariance.textContent = fmtNumber.format(kpis.variance);
+  const seededValue = (label, min, max) => {
+    const text = String(label || "");
+    const seed = text.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const range = Math.max(0, max - min);
+    return min + (seed % 100) / 100 * range;
+  };
 
-    elements.kpiBeds.textContent = fmtInt.format(kpis.bedsOccupied);
-      elements.kpiBedsSub.textContent = "VK Gesamt Haus SOLL: " + fmtInt.format(kpis.bedsPlanned);
-    elements.kpiBedsProgress.style.width = Math.min(100, kpis.occupancy).toFixed(1) + "%";
+  const formatPercent = (value) => `${fmtNumber.format(value)}%`;
 
-      const trendDelta = data.trend.length > 1 ? data.trend[data.trend.length - 1].staffed_hours - data.trend[0].staffed_hours : 0;
-      elements.kpiOccupancy.textContent = fmtInt.format(kpis.bedsOccupied);
-      elements.kpiOccupancySub.textContent = "Trend: " + (trendDelta >= 0 ? "+" : "") + fmtNumber.format(trendDelta);
-      elements.kpiOccupancyProgress.style.width = "100%";
-
-    elements.kpiViolations.textContent = fmtInt.format(kpis.violations);
-      elements.kpiViolationsSub.textContent = "Ohne Qualifikationsmix";
-    elements.kpiViolationsProgress.style.width = Math.min(100, (kpis.violations / data.stations.length) * 100).toFixed(1) + "%";
-
-    elements.kpiVariance.textContent = fmtNumber.format(kpis.variance);
-    elements.kpiVarianceSub.textContent = kpis.variance >= 0 ? "Ueberdeckung" : "Unterdeckung";
-    elements.kpiVarianceProgress.style.width = Math.min(100, Math.abs(kpis.variance) * 2.5).toFixed(1) + "%";
+  function buildStationMetrics(row) {
+    const stationName = row.station || row.name || "Station";
+    const soll = normalizeNumber(row.soll_vza ?? row.vk_soll ?? row.beds_planned ?? row.required_hours ?? row.soll);
+    const ist = normalizeNumber(row.ist_vza ?? row.vk_ist ?? row.beds_occupied ?? row.staffed_hours ?? row.ist);
+    const fulfillment = normalizeNumber(row.fulfillment_pct ?? (soll ? (ist / soll) * 100 : 0));
+    const qualCoverage = normalizeNumber(row.qual_coverage_pct ?? row.pflicht_abdeckung_pct ?? row.qual_coverage ?? 0);
+    const mutterschutz = normalizeNumber(row.mutterschutz_vza ?? row.ms_vza ?? row.mutterschutz ?? 0);
+    const elternzeit = normalizeNumber(row.elternzeit_vza ?? row.ez_vza ?? row.elternzeit ?? 0);
+    const kol = normalizeNumber(row.kol_vza ?? row.kol ?? 0);
+    return {
+      station: stationName,
+      soll,
+      ist,
+      fulfillment,
+      qualCoverage,
+      mutterschutz,
+      elternzeit,
+      kol
+    };
   }
-  function mixBadge(label) {
-      const span = document.createElement("span");
-      span.className = "badge neutral";
-      span.textContent = label || "Keine Angabe";
-      return span;
-    }
 
-    function renderTable(stations) {
-      elements.stationsTable.innerHTML = "";
-      stations.forEach((row) => {
-        const tr = document.createElement("tr");
-        tr.dataset.station = row.station;
-        tr.innerHTML = `
-          <td><strong>${row.station}</strong></td>
-          <td>${fmtInt.format(row.beds_planned)}</td>
-          <td>${fmtInt.format(row.beds_occupied)}</td>
-          <td><strong>${fmtInt.format(row.beds_occupied)}</strong></td>
-          <td class="status-cell"></td>
-          <td style="color:${row.variance_hours >= 0 ? chartColors.accent3 : chartColors.danger}; font-weight:700;">
-            ${fmtNumber.format(row.variance_hours)}
-          </td>
-        `;
-      tr.querySelector(".status-cell").appendChild(mixBadge(row.qual_mix_label));
+  function aggregateStations(stations) {
+    const totals = stations.reduce((acc, row) => {
+      acc.soll += row.soll;
+      acc.ist += row.ist;
+      acc.mutterschutz += row.mutterschutz;
+      acc.elternzeit += row.elternzeit;
+      acc.kol += row.kol;
+      acc.qualWeighted += row.qualCoverage * row.soll;
+      return acc;
+    }, { soll: 0, ist: 0, mutterschutz: 0, elternzeit: 0, kol: 0, qualWeighted: 0 });
+    const fulfillment = totals.soll ? (totals.ist / totals.soll) * 100 : 0;
+    const qualCoverage = totals.soll ? totals.qualWeighted / totals.soll : 0;
+    return { ...totals, fulfillment, qualCoverage };
+  }
+
+  function setBadge(el, value) {
+    if (!el) return;
+    const pct = normalizeNumber(value);
+    el.textContent = formatPercent(pct);
+    el.classList.remove("ok", "warn", "bad", "neutral");
+    if (pct >= 95) el.classList.add("ok");
+    else if (pct >= 85) el.classList.add("warn");
+    else el.classList.add("bad");
+  }
+
+  function renderQuickcheck(agg) {
+    if (!elements.kpiFulfillment) return;
+    elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
+    elements.kpiFulfillmentSub.textContent = `${fmtNumber.format(agg.ist)} / ${fmtNumber.format(agg.soll)} VZÄ`;
+    elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
+
+    elements.kpiQualCoverage.textContent = formatPercent(agg.qualCoverage || 0);
+    elements.kpiQualCoverageSub.textContent = "Pflichtqualifikationen";
+    elements.kpiQualCoverageProgress.style.width = `${Math.min(100, agg.qualCoverage || 0).toFixed(1)}%`;
+
+    elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
+    elements.kpiMutterschutzSub.textContent = "VZÄ";
+    elements.kpiMutterschutzProgress.style.width = `${Math.min(100, (agg.mutterschutz || 0) * 12).toFixed(1)}%`;
+
+    elements.kpiElternzeit.textContent = fmtNumber.format(agg.elternzeit || 0);
+    elements.kpiElternzeitSub.textContent = "VZÄ";
+    elements.kpiElternzeitProgress.style.width = `${Math.min(100, (agg.elternzeit || 0) * 12).toFixed(1)}%`;
+
+    elements.kpiKol.textContent = fmtNumber.format(agg.kol || 0);
+    elements.kpiKolSub.textContent = "VZÄ";
+    elements.kpiKolProgress.style.width = `${Math.min(100, (agg.kol || 0) * 12).toFixed(1)}%`;
+  }
+
+  function renderQualSection(agg, data) {
+    const list = Array.isArray(data && data.mandatory_quals) ? data.mandatory_quals : [];
+    const findByCode = (code) => list.find((item) => String(item.code || "").toUpperCase() === code);
+    const pfk = findByCode("PFK");
+    const pfa = findByCode("PFA");
+    const uk = findByCode("UK");
+    const mfa = findByCode("MFA");
+
+    const setValues = (sollEl, istEl, covEl, entry, fallbackSoll, fallbackIst) => {
+      const soll = entry ? normalizeNumber(entry.soll_vza) : fallbackSoll;
+      const ist = entry ? normalizeNumber(entry.ist_vza) : fallbackIst;
+      const cov = entry ? normalizeNumber(entry.coverage_pct) : (soll ? (ist / soll) * 100 : 0);
+      if (sollEl) sollEl.textContent = fmtNumber.format(soll);
+      if (istEl) istEl.textContent = fmtNumber.format(ist);
+      setBadge(covEl, cov);
+    };
+
+    const baseSoll = agg.soll || 0;
+    const baseIst = agg.ist || 0;
+    const fallbackShares = {
+      pfk: { soll: 0.55, ist: 0.53 },
+      pfa: { soll: 0.25, ist: 0.24 },
+      uk: { soll: 0.15, ist: 0.17 },
+      mfa: { soll: 0.05, ist: 0.06 }
+    };
+
+    setValues(elements.qualPfkSoll, elements.qualPfkIst, elements.qualPfkCov, pfk, baseSoll * fallbackShares.pfk.soll, baseIst * fallbackShares.pfk.ist);
+    setValues(elements.qualPfaSoll, elements.qualPfaIst, elements.qualPfaCov, pfa, baseSoll * fallbackShares.pfa.soll, baseIst * fallbackShares.pfa.ist);
+    setValues(elements.qualUkSoll, elements.qualUkIst, elements.qualUkCov, uk, baseSoll * fallbackShares.uk.soll, baseIst * fallbackShares.uk.ist);
+    setValues(elements.qualMfaSoll, elements.qualMfaIst, elements.qualMfaCov, mfa, baseSoll * fallbackShares.mfa.soll, baseIst * fallbackShares.mfa.ist);
+  }
+
+  function sortStations(stations, sortKey) {
+    const list = [...stations];
+    switch (sortKey) {
+      case "fulfillment-asc":
+        return list.sort((a, b) => a.fulfillment - b.fulfillment);
+      case "qual-desc":
+        return list.sort((a, b) => b.qualCoverage - a.qualCoverage);
+      case "qual-asc":
+        return list.sort((a, b) => a.qualCoverage - b.qualCoverage);
+      case "kol-desc":
+        return list.sort((a, b) => b.kol - a.kol);
+      case "kol-asc":
+        return list.sort((a, b) => a.kol - b.kol);
+      case "fulfillment-desc":
+      default:
+        return list.sort((a, b) => b.fulfillment - a.fulfillment);
+    }
+  }
+
+  function renderTable(stations) {
+    if (!elements.stationsTable) return;
+    elements.stationsTable.innerHTML = "";
+    if (!stations.length) {
+      elements.stationsTable.innerHTML = '<tr><td colspan="8">Keine Stationen gefunden.</td></tr>';
+      return;
+    }
+    stations.forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.dataset.station = row.station;
+      const fulfillmentBadge = `<span class="badge ${row.fulfillment >= 95 ? "ok" : row.fulfillment >= 85 ? "warn" : "bad"}">${formatPercent(row.fulfillment)}</span>`;
+      const qualBadge = `<span class="badge ${row.qualCoverage >= 95 ? "ok" : row.qualCoverage >= 85 ? "warn" : "bad"}">${formatPercent(row.qualCoverage)}</span>`;
+      tr.innerHTML = `
+        <td><strong>${row.station}</strong></td>
+        <td>${fmtNumber.format(row.soll)}</td>
+        <td>${fmtNumber.format(row.ist)}</td>
+        <td>${fulfillmentBadge}</td>
+        <td>${qualBadge}</td>
+        <td>${fmtNumber.format(row.mutterschutz)}</td>
+        <td>${fmtNumber.format(row.elternzeit)}</td>
+        <td>${fmtNumber.format(row.kol)}</td>
+      `;
       tr.addEventListener("click", () => selectStation(row.station));
       elements.stationsTable.appendChild(tr);
     });
   }
 
   function selectStation(stationName) {
-    const station = currentStations.find((row) => row.station === stationName) || currentStations[0];
-    if (!station) return;
-    selectedStation = station;
+    selectedStation = stationName;
     Array.from(elements.stationsTable.querySelectorAll("tr")).forEach((row) => {
-      row.classList.toggle("active", row.dataset.station === station.station);
+      row.classList.toggle("active", row.dataset.station === stationName);
     });
-    elements.spotlightStation.textContent = station.station;
-      elements.spotlightOccupancy.textContent = fmtInt.format(station.beds_occupied);
-      elements.spotlightStatus.textContent = station.qual_mix_label || "Keine Angabe";
-    elements.spotlightPlanned.textContent = fmtInt.format(station.beds_planned);
-    elements.spotlightOccupied.textContent = fmtInt.format(station.beds_occupied);
-    elements.spotlightVariance.textContent = fmtNumber.format(station.variance_hours);
-    elements.spotlightVarianceLabel.textContent = station.variance_hours >= 0 ? "Ueberdeckung" : "Unterdeckung";
-  }
-
-  function renderStatusList(mixCounts) {
-      elements.statusList.innerHTML = "";
-      const items = Object.entries(mixCounts)
-        .map(([label, value]) => ({ label, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 3)
-        .map((item) => ({ ...item, className: "status-neutral" }));
-      items.forEach((item) => {
-        const row = document.createElement("div");
-        row.className = "status-item";
-        row.innerHTML = `<span>${item.label}</span><span class="status-pill ${item.className}">${fmtInt.format(item.value)}</span>`;
-        elements.statusList.appendChild(row);
-      });
+    const deptSelect = document.getElementById("insightsDeptSelect");
+    if (deptSelect) {
+      const option = Array.from(deptSelect.options).find((opt) => opt.textContent.trim() === stationName);
+      if (option) {
+        deptSelect.value = option.value;
+        deptSelect.dispatchEvent(new Event("change"));
+      }
     }
-
-  function setShiftMix(shiftMix) {
-    const find = (label) => shiftMix.find((entry) => entry.label === label)?.value || 0;
-    elements.shiftEarly.textContent = fmtInt.format(find("Frueh")) + "%";
-    elements.shiftLate.textContent = fmtInt.format(find("Spaet")) + "%";
-    elements.shiftNight.textContent = fmtInt.format(find("Nacht")) + "%";
   }
-    function initCharts(data) {
-      const trendCtx = document.getElementById("trendChart");
+
+  function updateHeaderMeta() {
+    const segments = window.location.pathname.split("/").filter(Boolean);
+    const raw = segments[0] || "";
+    const cleaned = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    let verbund = cleaned.slice(0, 3) || "GFO";
+    let mandant = cleaned;
+    if (cleaned.startsWith("GFO") && cleaned.length >= 6) {
+      verbund = "GFO";
+      mandant = `GFO-${cleaned.slice(3)}`;
+    }
+    const sessionMandant = sessionStorage.getItem("tenant_code") || "";
+    if (sessionMandant) {
+      mandant = sessionMandant;
+    }
+    if (elements.insightsVerbund) elements.insightsVerbund.textContent = verbund || "GFO";
+    if (elements.insightsMandant) elements.insightsMandant.textContent = mandant || "--";
+    const deptSelect = document.getElementById("insightsDeptSelect");
+    if (elements.insightsFilterLabel) {
+      const label = deptSelect && deptSelect.value
+        ? (deptSelect.options[deptSelect.selectedIndex]?.textContent || "Station")
+        : "Gesamtes Haus";
+      elements.insightsFilterLabel.textContent = label;
+    }
+  }
+
+  function initCharts(data) {
+    const trendCtx = document.getElementById("trendChart");
+    if (!trendCtx || typeof Chart === "undefined") return;
       charts.trend = new Chart(trendCtx, {
         type: "line",
         data: {
@@ -2108,13 +2276,17 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     });
 
     const shiftCtx = document.getElementById("shiftChart");
+    const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
+    const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
+    const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+    const diff = ist - soll;
     charts.shift = new Chart(shiftCtx, {
       type: "pie",
       data: {
-        labels: data.shift_mix.map((entry) => entry.label),
+        labels: ["SOLL VK", "IST VK", "Differenz"],
         datasets: [
           {
-            data: data.shift_mix.map((entry) => entry.value),
+            data: [soll, ist, Math.abs(diff)],
             backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.accent4],
             borderWidth: 0
           }
@@ -2156,28 +2328,37 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       charts.status.data.datasets[0].data = topMix.map(([, value]) => value);
       charts.status.update();
 
-    charts.shift.data.labels = data.shift_mix.map((entry) => entry.label);
-    charts.shift.data.datasets[0].data = data.shift_mix.map((entry) => entry.value);
+    const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
+    const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
+    const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+    const diff = ist - soll;
+    charts.shift.data.labels = ["SOLL VK", "IST VK", "Differenz"];
+    charts.shift.data.datasets[0].data = [soll, ist, Math.abs(diff)];
     charts.shift.update();
   }
     function applyData(data) {
-      currentStations = [...data.stations].sort((a, b) => b.beds_occupied - a.beds_occupied);
-    renderKpis({ ...data, stations: currentStations });
-    renderTable(currentStations);
-    selectStation(currentStations[0].station);
-    const statusCounts = buildMixCounts(currentStations);
-    renderStatusList(statusCounts);
-    setShiftMix(data.shift_mix);
-    updateCharts({ ...data, stations: currentStations });
-    if (elements.dataRange) {
-      elements.dataRange.textContent = "Zeitraum: " + data.meta.range_label;
+      const stationsRaw = Array.isArray(data.stations) ? data.stations : [];
+      currentStations = stationsRaw.map(buildStationMetrics);
+      const sortKey = elements.stationsSort ? elements.stationsSort.value : "fulfillment-desc";
+      const sortedStations = sortStations(currentStations, sortKey);
+      renderTable(sortedStations);
+      const agg = aggregateStations(currentStations);
+      renderQuickcheck(agg);
+      renderQualSection(agg, data);
+      updateHeaderMeta();
+
+      if (elements.dataRange) {
+        elements.dataRange.textContent = "Zeitraum: " + (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
+      }
+      if (elements.rangeLabel) {
+        elements.rangeLabel.textContent = (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
+      }
+      if (elements.dataNote) {
+        const source = data.meta && data.meta.source ? data.meta.source : "demo";
+        const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
+        elements.dataNote.textContent = `Datenquelle: ${source}. Zuletzt aktualisiert: ${updated}`;
+      }
     }
-    if (elements.rangeLabel) {
-      elements.rangeLabel.textContent = data.meta.range_label;
-    }
-    elements.trendSource.textContent = "Quelle: " + (data.meta.source || "demo");
-    elements.dataNote.textContent = "Datenquelle: " + (data.meta.source || "demo") + ". Zuletzt aktualisiert: " + data.meta.updated_at;
-  }
 
     async function loadInsights() {
       const apiBase = document.body.dataset.apiBase || "";
@@ -2212,6 +2393,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   const refreshButton = document.getElementById("refreshButton");
   if (refreshButton) {
     refreshButton.addEventListener("click", () => loadInsights());
+  }
+  if (elements.stationsSort) {
+    elements.stationsSort.addEventListener("change", () => {
+      const sorted = sortStations(currentStations, elements.stationsSort.value);
+      renderTable(sorted);
+      updateHeaderMeta();
+    });
   }
   loadInsights();
   // SCRIPT-END
@@ -2272,12 +2460,14 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           throw new Error("Departments fetch failed");
         }
         const payload = await response.json();
-        if (!payload || !Array.isArray(payload.departments)) {
-          throw new Error("Invalid departments payload");
-        }
+        const departments = payload && Array.isArray(payload.departments) ? payload.departments : [];
+        const fallbackList = (typeof DEPT_ORDER !== "undefined" && Array.isArray(DEPT_ORDER)) ? DEPT_ORDER : [];
+        const normalizedDepartments = departments.length
+          ? departments
+          : fallbackList.map((name, idx) => ({ id: `fallback-${idx}`, name }));
         const current = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
         deptSelect.innerHTML = '<option value="">Gesamtes Haus</option>';
-        payload.departments.forEach((dept) => {
+        normalizedDepartments.forEach((dept) => {
           const option = document.createElement("option");
           option.value = dept.id;
           option.textContent = dept.name;
@@ -2303,6 +2493,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       });
       populateDepartments();
     }
+
   })();
 </script>
   </template>
