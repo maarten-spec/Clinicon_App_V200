@@ -16,6 +16,21 @@ export async function onRequest(context) {
     return next();
   }
 
+  const cookieHeader = request.headers.get("cookie") || "";
+  const tenantCookieMatch = cookieHeader.match(/(?:^|;\s*)clinicon_tenant=([^;]+)/);
+  const tenantCookie = tenantCookieMatch ? decodeURIComponent(tenantCookieMatch[1]) : "";
+  if (tenantCookie) {
+    let target = path;
+    if (path === "/") {
+      target = `/${tenantCookie}/pages/start.html`;
+    } else if (path.startsWith("/pages/")) {
+      target = `/${tenantCookie}${path}`;
+    }
+    if (target !== path) {
+      return Response.redirect(`${url.origin}${target}${url.search}`, 302);
+    }
+  }
+
   let accessEmail =
     request.headers.get("cf-access-authenticated-user-email") ||
     request.headers.get("CF-Access-Authenticated-User-Email") ||
@@ -63,7 +78,9 @@ export async function onRequest(context) {
   }
 
   if (target !== path) {
-    return Response.redirect(`${url.origin}${target}${url.search}`, 302);
+    const headers = new Headers({ Location: `${url.origin}${target}${url.search}` });
+    headers.append("Set-Cookie", `clinicon_tenant=${slug}; Max-Age=3600; Path=/; SameSite=Lax`);
+    return new Response(null, { status: 302, headers });
   }
 
   return next();

@@ -624,13 +624,23 @@
       if (!controls || !tenantSelect || !departmentSelect) return;
 
       try {
+        const formatTenantDisplay = (label) => {
+          const raw = String(label || "").trim();
+          const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+          if (normalized.startsWith("GFO") && normalized.length === 6) {
+            return `GFO-${normalized.slice(3)}`;
+          }
+          return raw.toUpperCase();
+        };
         const setTenantPill = (label) => {
           if (!tenantPill) return;
-          const clean = label ? String(label) : "Demo";
+          const clean = label ? formatTenantDisplay(label) : "Demo";
           tenantPill.textContent = `Mandant: ${clean}`;
         };
         const getAccessEmail = async () => {
           try {
+            const cached = (sessionStorage.getItem("user_email") || "").trim();
+            if (cached) return cached;
             const res = await fetch("/cdn-cgi/access/get-identity", { credentials: "same-origin" });
             if (!res.ok) throw new Error("identity fetch failed");
             const data = await res.json();
@@ -645,14 +655,14 @@
           return (sessionStorage.getItem("user_email") || "").trim();
         };
         const normalizeTenantKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const getPathTenantKey = () => {
+        const getPathTenantInfo = () => {
           const segments = window.location.pathname.split("/").filter(Boolean);
-          if (!segments.length) return "";
+          if (!segments.length) return { key: "", raw: "" };
           const maybeTenant = segments[0];
           const reserved = new Set(["pages", "assets", "api", "cdn-cgi"]);
           const normalized = normalizeTenantKey(maybeTenant);
-          if (!normalized || reserved.has(normalized)) return "";
-          return normalized;
+          if (!normalized || reserved.has(normalized)) return { key: "", raw: "" };
+          return { key: normalized, raw: String(maybeTenant || "") };
         };
         const buildTenantSlug = (code) => normalizeTenantKey(code);
         const urlParams = new URLSearchParams(window.location.search);
@@ -664,12 +674,29 @@
         }
         const buildTenantUrl = (base) =>
           devTenant ? `${base}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${base}/api/tenants`;
-        let tenantRes = await fetch(buildTenantUrl(apiBase), { headers: tenantHeaders });
-        if (!tenantRes.ok) {
-          tenantRes = await fetch(buildTenantUrl("https://clinicon-stellenplan.maarten-koomen.workers.dev"), { headers: tenantHeaders });
+        const cacheKey = "tenant_cache";
+        const cacheTtl = 5 * 60 * 1000;
+        const cachedRaw = sessionStorage.getItem(cacheKey);
+        let tenantData = null;
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw);
+            if (cached && cached.ts && (Date.now() - cached.ts) < cacheTtl) {
+              tenantData = cached.data || null;
+            }
+          } catch (err) {
+            // ignore
+          }
         }
-        if (!tenantRes.ok) return;
-        const tenantData = await tenantRes.json();
+        if (!tenantData) {
+          let tenantRes = await fetch(buildTenantUrl(apiBase), { headers: tenantHeaders });
+          if (!tenantRes.ok) {
+            tenantRes = await fetch(buildTenantUrl("https://clinicon-stellenplan.maarten-koomen.workers.dev"), { headers: tenantHeaders });
+          }
+          if (!tenantRes.ok) return;
+          tenantData = await tenantRes.json();
+          sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: tenantData }));
+        }
         const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
         const role = tenantData.role || "tenant";
         const showTenant = role === "admin" || role === "zpd";
@@ -678,7 +705,12 @@
         const activeTenantId = Number.isFinite(storedTenant)
           ? storedTenant
           : (tenantData.tenant && tenantData.tenant.id) ? tenantData.tenant.id : (tenants[0] && tenants[0].id);
-        const pathTenantKey = getPathTenantKey();
+        const pathTenantInfo = getPathTenantInfo();
+        const pathTenantKey = pathTenantInfo.key;
+        if (pathTenantInfo.raw) {
+          setTenantPill(pathTenantInfo.raw.toUpperCase());
+          sessionStorage.setItem("tenant_code", pathTenantInfo.raw.toUpperCase());
+        }
         const matchedPathTenant = pathTenantKey
           ? tenants.find((t) => normalizeTenantKey(t.code || t.name) === pathTenantKey)
           : null;
