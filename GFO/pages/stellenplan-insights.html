@@ -908,6 +908,48 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
             </div>
           </section>
 
+          <section class="grid-two">
+            <div class="card">
+              <div class="card-header">
+                <h3>Monatsverlauf (VK IST / SOLL)</h3>
+                <span class="card-sub" id="trendSource">Quelle: Demo</span>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="trendChart"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>Top Stationen (VK IST)</h3>
+                <span class="card-sub">Klickbar</span>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="topStationsChart"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <section class="grid-two">
+            <div class="card">
+              <div class="card-header">
+                <h3>Monate (Balken VK IST/SOLL)</h3>
+                <span class="card-sub">Jan–Dez, klickbar</span>
+              </div>
+              <div class="chart-wrap small">
+                <canvas id="monthBarChart"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>Qualifikationsmix (Top 3)</h3>
+                <span class="card-sub">Verteilung</span>
+              </div>
+              <div class="chart-wrap small">
+                <canvas id="statusChart"></canvas>
+              </div>
+            </div>
+          </section>
+
           <section class="card">
             <div class="card-header">
               <div>
@@ -2171,8 +2213,9 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   }
 
   function initCharts(data) {
+    if (typeof Chart === "undefined") return;
     const trendCtx = document.getElementById("trendChart");
-    if (!trendCtx || typeof Chart === "undefined") return;
+    if (trendCtx) {
       charts.trend = new Chart(trendCtx, {
         type: "line",
         data: {
@@ -2216,43 +2259,47 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           }
         }
       });
+    }
 
     const topCtx = document.getElementById("topStationsChart");
-    charts.topStations = new Chart(topCtx, {
-      type: "bar",
-      data: {
-        labels: data.stations.map((row) => row.station),
-        datasets: [
-          {
-            label: "VK Gesamt Haus IST",
-            data: data.stations.map((row) => row.beds_occupied),
-            backgroundColor: data.stations.map((row) =>
-              selectedStation && row.station === selectedStation.station ? chartColors.accent2 : chartColors.accent
-            ),
-            borderRadius: 8
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        onClick: (evt, activeEls) => {
-          if (activeEls.length > 0) {
-            const index = activeEls[0].index;
-            selectStation(currentStations[index].station);
-            updateTopChart();
-          }
+    if (topCtx) {
+      charts.topStations = new Chart(topCtx, {
+        type: "bar",
+        data: {
+          labels: data.stations.map((row) => row.station),
+          datasets: [
+            {
+              label: "VK Gesamt Haus IST",
+              data: data.stations.map((row) => row.beds_occupied),
+              backgroundColor: data.stations.map((row) =>
+                selectedStation && row.station === selectedStation.station ? chartColors.accent2 : chartColors.accent
+              ),
+              borderRadius: 8
+            }
+          ]
         },
-        scales: {
-          y: { beginAtZero: true, ticks: { callback: (value) => value + "%" } }
-        },
-        plugins: {
-          legend: { display: false }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick: (evt, activeEls) => {
+            if (activeEls.length > 0) {
+              const index = activeEls[0].index;
+              selectStation(currentStations[index].station);
+              updateTopChart();
+            }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { display: false }
+          }
         }
-      }
-    });
+      });
+    }
 
     const statusCtx = document.getElementById("statusChart");
+    if (statusCtx) {
       const statusCounts = buildMixCounts(data.stations);
       const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
       charts.status = new Chart(statusCtx, {
@@ -2267,37 +2314,80 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
             }
           ]
         },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } },
-        cutout: "62%"
-      }
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom" } },
+          cutout: "62%"
+        }
+      });
+    }
+
+    const monthCtx = document.getElementById("monthBarChart");
+    if (monthCtx) {
+      charts.monthBars = new Chart(monthCtx, {
+        type: "bar",
+        data: {
+          labels: data.trend.map((row) => monthLabelFromDate(row.date)),
+          datasets: [
+            {
+              label: "VK IST",
+              data: data.trend.map((row) => row.staffed_hours),
+              backgroundColor: chartColors.accent
+            },
+            {
+              label: "VK SOLL",
+              data: data.trend.map((row) => row.required_hours),
+              backgroundColor: chartColors.accent3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onClick: (evt, activeEls) => {
+            if (activeEls.length > 0) {
+              const index = activeEls[0].index;
+              const label = data.trend[index] ? monthLabelFromDate(data.trend[index].date) : "";
+              if (elements.rangeLabel && label) elements.rangeLabel.textContent = label;
+              if (elements.dataRange && label) elements.dataRange.textContent = "Zeitraum: " + label;
+            }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          },
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 12 } }
+          }
+        }
+      });
+    }
 
     const shiftCtx = document.getElementById("shiftChart");
-    const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
-    const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
-    const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
-    const diff = ist - soll;
-    charts.shift = new Chart(shiftCtx, {
-      type: "pie",
-      data: {
-        labels: ["SOLL VK", "IST VK", "Differenz"],
-        datasets: [
-          {
-            data: [soll, ist, Math.abs(diff)],
-            backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.accent4],
-            borderWidth: 0
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: "bottom" } }
-      }
-    });
+    if (shiftCtx) {
+      const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
+      const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
+      const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+      const diff = ist - soll;
+      charts.shift = new Chart(shiftCtx, {
+        type: "pie",
+        data: {
+          labels: ["SOLL VK", "IST VK", "Differenz"],
+          datasets: [
+            {
+              data: [soll, ist, Math.abs(diff)],
+              backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.accent4],
+              borderWidth: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom" } }
+        }
+      });
+    }
   }
 
   function updateTopChart() {
@@ -2309,33 +2399,48 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   }
 
     function updateCharts(data) {
-      if (!charts.trend) {
+      if (!charts.trend && !charts.topStations && !charts.status && !charts.monthBars && !charts.shift) {
         initCharts(data);
         return;
       }
-      charts.trend.data.labels = data.trend.map((row) => row.date);
-      charts.trend.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
-      charts.trend.data.datasets[1].data = data.trend.map((row) => row.required_hours);
-      charts.trend.update();
+      if (charts.trend) {
+        charts.trend.data.labels = data.trend.map((row) => row.date);
+        charts.trend.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
+        charts.trend.data.datasets[1].data = data.trend.map((row) => row.required_hours);
+        charts.trend.update();
+      }
 
-      charts.topStations.data.labels = data.stations.map((row) => row.station);
-      charts.topStations.data.datasets[0].data = data.stations.map((row) => row.beds_occupied);
-      updateTopChart();
+      if (charts.topStations) {
+        charts.topStations.data.labels = data.stations.map((row) => row.station);
+        charts.topStations.data.datasets[0].data = data.stations.map((row) => row.beds_occupied);
+        updateTopChart();
+      }
 
-      const statusCounts = buildMixCounts(data.stations);
-      const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-      charts.status.data.labels = topMix.map(([label]) => label);
-      charts.status.data.datasets[0].data = topMix.map(([, value]) => value);
-      charts.status.update();
+      if (charts.status) {
+        const statusCounts = buildMixCounts(data.stations);
+        const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        charts.status.data.labels = topMix.map(([label]) => label);
+        charts.status.data.datasets[0].data = topMix.map(([, value]) => value);
+        charts.status.update();
+      }
 
-    const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
-    const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
-    const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
-    const diff = ist - soll;
-    charts.shift.data.labels = ["SOLL VK", "IST VK", "Differenz"];
-    charts.shift.data.datasets[0].data = [soll, ist, Math.abs(diff)];
-    charts.shift.update();
-  }
+      if (charts.monthBars) {
+        charts.monthBars.data.labels = data.trend.map((row) => monthLabelFromDate(row.date));
+        charts.monthBars.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
+        charts.monthBars.data.datasets[1].data = data.trend.map((row) => row.required_hours);
+        charts.monthBars.update();
+      }
+
+      if (charts.shift) {
+        const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
+        const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
+        const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+        const diff = ist - soll;
+        charts.shift.data.labels = ["SOLL VK", "IST VK", "Differenz"];
+        charts.shift.data.datasets[0].data = [soll, ist, Math.abs(diff)];
+        charts.shift.update();
+      }
+    }
     function applyData(data) {
       const stationsRaw = Array.isArray(data.stations) ? data.stations : [];
       currentStations = stationsRaw.map(buildStationMetrics);
@@ -2346,6 +2451,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       renderQuickcheck(agg);
       renderQualSection(agg, data);
       updateHeaderMeta();
+      updateCharts(data);
 
       if (elements.dataRange) {
         elements.dataRange.textContent = "Zeitraum: " + (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
@@ -2357,6 +2463,11 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         const source = data.meta && data.meta.source ? data.meta.source : "demo";
         const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
         elements.dataNote.textContent = `Datenquelle: ${source}. Zuletzt aktualisiert: ${updated}`;
+      }
+      const trendSource = document.getElementById("trendSource");
+      if (trendSource) {
+        const source = data.meta && data.meta.source ? data.meta.source : "demo";
+        trendSource.textContent = `Quelle: ${source}`;
       }
     }
 

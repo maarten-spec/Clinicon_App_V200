@@ -759,6 +759,7 @@ async function handleGetInsights(request, env) {
     return badRequest("Invalid year.");
   }
   const monthParam = toInt(url.searchParams.get("month"), null);
+  const deptId = toInt(url.searchParams.get("department"), null);
   const db = env.DB;
   const tenantContext = await resolveTenantContext(db, request);
   if (tenantContext.error) {
@@ -874,7 +875,7 @@ async function handleGetInsights(request, env) {
     if (code === "KOL") agg.kol += normalizeNumber(row.total);
   }
 
-    const stations = (stationRows.results || []).map((row) => {
+    let stations = (stationRows.results || []).map((row) => {
       const vkSoll = normalizeNumber(row.vk_soll);
       const vkIst = normalizeNumber(row.vk_ist);
       const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
@@ -937,23 +938,25 @@ async function handleGetInsights(request, env) {
     // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
     if (!stations.length) {
       let empSql =
-        "SELECT e.extra_category AS dept, SUM(v.value) AS total " +
+        "SELECT e.department_id AS dept_id, " +
+        "COALESCE(d.name, d.code, e.extra_category, 'Station') AS dept_label, " +
+        "SUM(v.value) AS total " +
         "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+        "LEFT JOIN departments d ON d.id=e.department_id " +
         "WHERE v.year=? AND v.month=? AND e.category='main'";
       const empParams = [year, month];
       if (tenantId) {
         empSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
         empParams.push(tenantId);
       }
-      const deptId = toInt(url.searchParams.get("department"), null);
       if (Number.isFinite(deptId)) {
         empSql += " AND (e.department_id=? OR e.department_id IS NULL)";
         empParams.push(deptId);
       }
-      empSql += " GROUP BY e.extra_category ORDER BY e.extra_category";
+      empSql += " GROUP BY e.department_id, dept_label ORDER BY dept_label";
       const empRows = await db.prepare(empSql).bind(...empParams).all();
       for (const row of empRows.results || []) {
-        const label = normalizeText(row.dept || "Station");
+        const label = normalizeText(row.dept_label || "Station");
         const vkIst = normalizeNumber(row.total);
         stations.push({
           station: label,
@@ -963,6 +966,13 @@ async function handleGetInsights(request, env) {
           qual_mix_label: "Keine Angabe",
           variance_hours: vkIst
         });
+      }
+    }
+    if (Number.isFinite(deptId)) {
+      const deptRow = (deptRows.results || []).find((row) => row.id === deptId) || null;
+      const deptKey = deptRow ? normalizeKey(deptRow.name || deptRow.code || "") : "";
+      if (deptKey) {
+        stations = stations.filter((row) => normalizeKey(row.station) === deptKey);
       }
     }
 
@@ -976,7 +986,8 @@ async function handleGetInsights(request, env) {
         )
         .bind(...[year, ...(tenantId ? [tenantId] : [])])
         .all();
-    } else {
+    }
+    if (!actualTotals || !(actualTotals.results || []).length) {
       let empTotalSql =
         "SELECT v.month AS month, SUM(v.value) AS total " +
         "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
@@ -986,10 +997,15 @@ async function handleGetInsights(request, env) {
         empTotalSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
         empTotalParams.push(tenantId);
       }
+      if (deptId) {
+        empTotalSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+        empTotalParams.push(deptId);
+      }
       empTotalSql += " GROUP BY v.month";
       actualTotals = await db.prepare(empTotalSql).bind(...empTotalParams).all();
     }
-  const planTotals = await db
+
+  let planTotals = await db
     .prepare(
       "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
         (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
@@ -997,6 +1013,21 @@ async function handleGetInsights(request, env) {
     )
     .bind(...[year, ...(tenantId ? [tenantId] : [])])
     .all();
+  if (!planTotals || !(planTotals.results || []).length) {
+    let planSql =
+      "SELECT month, SUM(value) AS total FROM wirtschaftsplan_targets WHERE year=? AND scope='total'";
+    const planParams = [year];
+    if (tenantId) {
+      planSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+      planParams.push(tenantId);
+    }
+    if (deptId) {
+      planSql += " AND (department_id=? OR department_id IS NULL)";
+      planParams.push(deptId);
+    }
+    planSql += " GROUP BY month";
+    planTotals = await db.prepare(planSql).bind(...planParams).all();
+  }
 
   const trendMap = new Map();
   for (const row of planTotals.results || []) {
@@ -1012,6 +1043,11 @@ async function handleGetInsights(request, env) {
     trendMap.set(row.month, entry);
   }
 
+  for (let m = 1; m <= 12; m += 1) {
+    if (!trendMap.has(m)) {
+      trendMap.set(m, { month: m, vk_soll: 0, vk_ist: 0 });
+    }
+  }
   const trend = Array.from(trendMap.values())
     .sort((a, b) => a.month - b.month)
     .map((entry) => ({
