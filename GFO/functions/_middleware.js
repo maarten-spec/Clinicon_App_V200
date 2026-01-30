@@ -57,8 +57,12 @@ export async function onRequest(context) {
     return next();
   }
 
-  const tenantRes = await fetch("https://clinicon-stellenplan.maarten-koomen.workers.dev/api/tenants", {
-    headers: { "x-user-email": accessEmail, Accept: "application/json" }
+  const tenantRes = await fetch(`${url.origin}/api/tenants`, {
+    headers: {
+      "cf-access-authenticated-user-email": accessEmail,
+      "CF-Access-Authenticated-User-Email": accessEmail,
+      Accept: "application/json"
+    }
   });
   if (!tenantRes.ok) {
     return next();

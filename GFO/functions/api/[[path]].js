@@ -29,7 +29,8 @@ export async function onRequest({ request, params }) {
   }
 
   if (accessEmail) {
-    headers.set("x-user-email", accessEmail);
+    headers.set("cf-access-authenticated-user-email", accessEmail);
+    headers.set("CF-Access-Authenticated-User-Email", accessEmail);
   }
 
   const init = {
