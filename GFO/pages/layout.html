@@ -621,22 +621,40 @@
       const departmentSelect = document.getElementById("departmentSelect");
       const tenantLabel = document.getElementById("tenantLabel");
       const tenantPill = document.getElementById("tenantPill");
+      const pathTenantInfo = (() => {
+        const segments = window.location.pathname.split("/").filter(Boolean);
+        if (!segments.length) return { key: "", raw: "" };
+        const maybeTenant = segments[0];
+        const reserved = new Set(["pages", "assets", "api", "cdn-cgi"]);
+        const normalized = String(maybeTenant || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (!normalized || reserved.has(normalized)) return { key: "", raw: "" };
+        return { key: normalized, raw: String(maybeTenant || "") };
+      })();
+      const formatTenantDisplay = (label) => {
+        const raw = String(label || "").trim();
+        const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+        if (normalized.startsWith("GFO") && normalized.length === 6) {
+          return `GFO-${normalized.slice(3)}`;
+        }
+        return raw.toUpperCase();
+      };
+      const setTenantPill = (label) => {
+        if (!tenantPill) return;
+        const clean = label ? formatTenantDisplay(label) : "Demo";
+        tenantPill.textContent = `Mandant: ${clean}`;
+      };
+      if (pathTenantInfo.raw) {
+        setTenantPill(pathTenantInfo.raw);
+        sessionStorage.setItem("tenant_code", formatTenantDisplay(pathTenantInfo.raw));
+      } else {
+        const storedCode = (sessionStorage.getItem("tenant_code") || "").trim();
+        if (storedCode) setTenantPill(storedCode);
+      }
+
       if (!controls || !tenantSelect || !departmentSelect) return;
 
       try {
-        const formatTenantDisplay = (label) => {
-          const raw = String(label || "").trim();
-          const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
-          if (normalized.startsWith("GFO") && normalized.length === 6) {
-            return `GFO-${normalized.slice(3)}`;
-          }
-          return raw.toUpperCase();
-        };
-        const setTenantPill = (label) => {
-          if (!tenantPill) return;
-          const clean = label ? formatTenantDisplay(label) : "Demo";
-          tenantPill.textContent = `Mandant: ${clean}`;
-        };
+        // formatTenantDisplay + setTenantPill defined above for early fallback
         const getAccessEmail = async () => {
           try {
             const cached = (sessionStorage.getItem("user_email") || "").trim();
@@ -655,17 +673,7 @@
           return (sessionStorage.getItem("user_email") || "").trim();
         };
         const normalizeTenantKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const getPathTenantInfo = () => {
-          const segments = window.location.pathname.split("/").filter(Boolean);
-          if (!segments.length) return { key: "", raw: "" };
-          const maybeTenant = segments[0];
-          const reserved = new Set(["pages", "assets", "api", "cdn-cgi"]);
-          const normalized = normalizeTenantKey(maybeTenant);
-          if (!normalized || reserved.has(normalized)) return { key: "", raw: "" };
-          return { key: normalized, raw: String(maybeTenant || "") };
-        };
         const buildTenantSlug = (code) => normalizeTenantKey(code);
-        const pathTenantInfo = getPathTenantInfo();
         const pathTenantKey = pathTenantInfo.key;
         const pathTenantDisplay = pathTenantInfo.raw ? formatTenantDisplay(pathTenantInfo.raw) : "";
         if (pathTenantDisplay) {

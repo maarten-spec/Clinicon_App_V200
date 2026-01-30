@@ -470,6 +470,7 @@ async function saveOptionalQualifications(db, employeeId, list) {
 }
 
 async function handlePostStellenplan(request, env) {
+  try {
   const payload = await request.json().catch(() => null);
   if (!payload || typeof payload !== "object") {
     return badRequest("Invalid payload.");
@@ -574,6 +575,9 @@ async function handlePostStellenplan(request, env) {
   }
 
   return jsonResponse({ ok: true });
+  } catch (err) {
+    return jsonResponse({ ok: false, error: "Save failed", detail: String(err && err.message ? err.message : err) }, 500);
+  }
 }
 
 async function handleGetSollwert(request, env) {

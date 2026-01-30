@@ -1952,14 +1952,14 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   const fmtNumber = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
   const fmtInt = new Intl.NumberFormat("de-DE");
   const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
-  const monthLabelFromDate = (value) => {
-    if (!value) return "";
-    const raw = String(value);
-    const parts = raw.split("-");
-    if (parts.length < 2) return raw;
-    const idx = Number(parts[1]) - 1;
-    return Number.isFinite(idx) && MONTHS_SHORT[idx] ? MONTHS_SHORT[idx] : raw;
-  };
+    const monthLabelFromDate = (value, index) => {
+      if (!value) return MONTHS_SHORT[index] || "";
+      const raw = String(value);
+      const parts = raw.split("-");
+      if (parts.length < 2) return MONTHS_SHORT[index] || raw;
+      const idx = Number(parts[1]) - 1;
+      return Number.isFinite(idx) && MONTHS_SHORT[idx] ? MONTHS_SHORT[idx] : (MONTHS_SHORT[index] || raw);
+    };
 
   const elements = {
     dataRange: document.getElementById("dataRange"),
@@ -2250,7 +2250,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               ticks: {
                 callback: function (value) {
                   const label = this.getLabelForValue ? this.getLabelForValue(value) : value;
-                  return monthLabelFromDate(label);
+                  return monthLabelFromDate(label, value);
                 }
               }
             },
@@ -2328,7 +2328,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       charts.monthBars = new Chart(monthCtx, {
         type: "bar",
         data: {
-          labels: data.trend.map((row) => monthLabelFromDate(row.date)),
+          labels: data.trend.map((row, idx) => monthLabelFromDate(row.date, idx)),
           datasets: [
             {
               label: "VK IST",
@@ -2425,7 +2425,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       }
 
       if (charts.monthBars) {
-        charts.monthBars.data.labels = data.trend.map((row) => monthLabelFromDate(row.date));
+        charts.monthBars.data.labels = data.trend.map((row, idx) => monthLabelFromDate(row.date, idx));
         charts.monthBars.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
         charts.monthBars.data.datasets[1].data = data.trend.map((row) => row.required_hours);
         charts.monthBars.update();
