@@ -1956,6 +1956,32 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     ]
   };
 
+  const buildEmptyTrend = (year) => {
+    const y = Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear();
+    return MONTHS_SHORT.map((_, idx) => ({
+      date: `${y}-${String(idx + 1).padStart(2, "0")}-01`,
+      occupancy_pct: 0,
+      staffed_hours: 0,
+      required_hours: 0
+    }));
+  };
+
+  const emptyData = {
+    meta: {
+      updated_at: new Date().toISOString(),
+      range_label: "Jan-Dez",
+      source: "d1"
+    },
+    trend: buildEmptyTrend(new Date().getFullYear()),
+    stations: [],
+    mandatory_quals: [],
+    shift_mix: [
+      { label: "Frueh", value: 0 },
+      { label: "Spaet", value: 0 },
+      { label: "Nacht", value: 0 }
+    ]
+  };
+
   const fmtNumber = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
   const fmtInt = new Intl.NumberFormat("de-DE");
   const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
@@ -2490,12 +2516,15 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       }
       const safePayload = {
         ...payload,
-        meta: payload.meta || demoData.meta,
-        shift_mix: payload.shift_mix || demoData.shift_mix
+        meta: payload.meta || emptyData.meta,
+        trend: Array.isArray(payload.trend) && payload.trend.length ? payload.trend : emptyData.trend,
+        stations: Array.isArray(payload.stations) ? payload.stations : [],
+        shift_mix: payload.shift_mix || emptyData.shift_mix,
+        mandatory_quals: Array.isArray(payload.mandatory_quals) ? payload.mandatory_quals : []
       };
       applyData(safePayload);
     } catch (err) {
-      applyData(demoData);
+      applyData(emptyData);
     }
   }
 
@@ -2596,11 +2625,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           throw new Error("Departments fetch failed");
         }
         const payload = await response.json();
-        const departments = payload && Array.isArray(payload.departments) ? payload.departments : [];
-        const fallbackList = (typeof DEPT_ORDER !== "undefined" && Array.isArray(DEPT_ORDER)) ? DEPT_ORDER : [];
-        const normalizedDepartments = departments.length
-          ? departments
-          : fallbackList.map((name, idx) => ({ id: `fallback-${idx}`, name }));
+        const normalizedDepartments = payload && Array.isArray(payload.departments) ? payload.departments : [];
         const current = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
         deptSelect.innerHTML = '<option value="">Gesamtes Haus</option>';
         normalizedDepartments.forEach((dept) => {
