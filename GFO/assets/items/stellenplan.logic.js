@@ -950,30 +950,60 @@ async function bindControls() {
 
     const stationSelect = $(selectors.stationSelect);
     if (stationSelect) {
-      const ctx = getContextIds();
-      try {
-        let deptData = null;
-        if (ctx.tenantId) {
-          deptData = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
+      let cachedDepartments = [];
+      const fetchDepartments = async () => {
+        const ctx = getContextIds();
+        if (!ctx.tenantId) return [];
+        const deptData = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
+        return Array.isArray(deptData?.departments) ? deptData.departments : [];
+      };
+
+      const waitForTenant = async () => {
+        for (let i = 0; i < 20; i += 1) {
+          const ctx = getContextIds();
+          if (ctx.tenantId) return ctx;
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
-        const departments = Array.isArray(deptData?.departments) ? deptData.departments : [];
-        if (departments.length) {
-          stationSelect.innerHTML = departments
+        return getContextIds();
+      };
+
+      try {
+        await waitForTenant();
+        cachedDepartments = await fetchDepartments();
+        if (cachedDepartments.length) {
+          stationSelect.innerHTML = cachedDepartments
             .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
             .join("");
-          const selected = ctx.departmentId || departments[0].id;
+          const ctx = getContextIds();
+          const selected = ctx.departmentId || cachedDepartments[0].id;
           stationSelect.value = String(selected);
           state.departmentId = selected;
         }
       } catch (err) {
         // ignore
       }
-      stationSelect.addEventListener("change", () => {
-        const selectedId = Number.parseInt(stationSelect.value, 10);
+
+      stationSelect.addEventListener("change", async () => {
+        const rawValue = stationSelect.value;
+        const selectedId = Number.parseInt(rawValue, 10);
         if (Number.isFinite(selectedId)) {
           sessionStorage.setItem("department_id", String(selectedId));
+          window.location.reload();
+          return;
         }
-        window.location.reload();
+        // fallback: map by name if select still contains labels
+        if (!cachedDepartments.length) {
+          try {
+            cachedDepartments = await fetchDepartments();
+          } catch (err) {
+            cachedDepartments = [];
+          }
+        }
+        const match = cachedDepartments.find((d) => String(d.name || d.code) === rawValue);
+        if (match && Number.isFinite(Number(match.id))) {
+          sessionStorage.setItem("department_id", String(match.id));
+          window.location.reload();
+        }
       });
     }
 

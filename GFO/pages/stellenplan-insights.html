@@ -2580,7 +2580,14 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       if (!deptSelect) return;
       const apiBase = document.body.dataset.apiBase || "";
       const params = new URLSearchParams();
-      const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+      let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+      if (!tenantId) {
+        for (let i = 0; i < 20; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+          if (tenantId) break;
+        }
+      }
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
