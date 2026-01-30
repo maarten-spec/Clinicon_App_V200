@@ -951,14 +951,10 @@ th:nth-child(2), td:nth-child(2){left:100px;} th:first-child, td:first-child{min
         }
       }
 
-      const slot = document.getElementById("app-main") || document.querySelector("main");
-      if (slot) {
-        slot.innerHTML = __pageContent;
-
-        const scripts = Array.from(slot.querySelectorAll("script"));
+            const runScriptNodes = (nodes) => {
         const runScripts = (index) => {
-          if (index >= scripts.length) return;
-          const oldScript = scripts[index];
+          if (index >= nodes.length) return;
+          const oldScript = nodes[index];
           const script = document.createElement("script");
           Array.from(oldScript.attributes).forEach((attr) => {
             script.setAttribute(attr.name, attr.value);
@@ -978,6 +974,20 @@ th:nth-child(2), td:nth-child(2){left:100px;} th:first-child, td:first-child{min
           }
         };
         runScripts(0);
+      };
+
+      const layoutScripts = Array.from(document.body.querySelectorAll("script"));
+      if (layoutScripts.length) {
+        runScriptNodes(layoutScripts);
+      }
+
+      const slot = document.getElementById("app-main") || document.querySelector("main");
+      if (slot) {
+        slot.innerHTML = __pageContent;
+        const slotScripts = Array.from(slot.querySelectorAll("script"));
+        if (slotScripts.length) {
+          runScriptNodes(slotScripts);
+        }
       }
 
       const current = (location.pathname.split("/").pop() || "").toLowerCase();
@@ -1007,6 +1017,8 @@ th:nth-child(2), td:nth-child(2){left:100px;} th:first-child, td:first-child{min
   </script>
 </body>
 </html>
+
+
 
 
 

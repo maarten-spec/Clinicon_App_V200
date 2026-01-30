@@ -385,14 +385,10 @@ textarea{min-height:110px;resize:vertical;}
         }
       }
 
-      const slot = document.getElementById("app-main") || document.querySelector("main");
-      if (slot) {
-        slot.innerHTML = __pageContent;
-
-        const scripts = Array.from(slot.querySelectorAll("script"));
+            const runScriptNodes = (nodes) => {
         const runScripts = (index) => {
-          if (index >= scripts.length) return;
-          const oldScript = scripts[index];
+          if (index >= nodes.length) return;
+          const oldScript = nodes[index];
           const script = document.createElement("script");
           Array.from(oldScript.attributes).forEach((attr) => {
             script.setAttribute(attr.name, attr.value);
@@ -412,6 +408,20 @@ textarea{min-height:110px;resize:vertical;}
           }
         };
         runScripts(0);
+      };
+
+      const layoutScripts = Array.from(document.body.querySelectorAll("script"));
+      if (layoutScripts.length) {
+        runScriptNodes(layoutScripts);
+      }
+
+      const slot = document.getElementById("app-main") || document.querySelector("main");
+      if (slot) {
+        slot.innerHTML = __pageContent;
+        const slotScripts = Array.from(slot.querySelectorAll("script"));
+        if (slotScripts.length) {
+          runScriptNodes(slotScripts);
+        }
       }
 
       const current = (location.pathname.split("/").pop() || "").toLowerCase();
@@ -441,6 +451,8 @@ textarea{min-height:110px;resize:vertical;}
   </script>
 </body>
 </html>
+
+
 
 
 
