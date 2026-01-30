@@ -43,5 +43,12 @@ export async function onRequest({ request, params }) {
     init.body = await request.arrayBuffer();
   }
 
-  return fetch(target, init);
+  try {
+    return await fetch(target, init);
+  } catch (err) {
+    return new Response(JSON.stringify({ ok: false, error: "proxy_error" }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8" }
+    });
+  }
 }

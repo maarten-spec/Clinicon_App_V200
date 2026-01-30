@@ -57,17 +57,22 @@ export async function onRequest(context) {
     return next();
   }
 
-  const tenantRes = await fetch(`${url.origin}/api/tenants`, {
-    headers: {
-      "cf-access-authenticated-user-email": accessEmail,
-      "CF-Access-Authenticated-User-Email": accessEmail,
-      Accept: "application/json"
+  let tenantData;
+  try {
+    const tenantRes = await fetch(`${url.origin}/api/tenants`, {
+      headers: {
+        "cf-access-authenticated-user-email": accessEmail,
+        "CF-Access-Authenticated-User-Email": accessEmail,
+        Accept: "application/json"
+      }
+    });
+    if (!tenantRes.ok) {
+      return next();
     }
-  });
-  if (!tenantRes.ok) {
+    tenantData = await tenantRes.json();
+  } catch (err) {
     return next();
   }
-  const tenantData = await tenantRes.json();
   const tenant = tenantData && tenantData.tenant ? tenantData.tenant : (Array.isArray(tenantData.tenants) ? tenantData.tenants[0] : null);
   const slug = normalize(tenant ? (tenant.code || tenant.name) : "");
   if (!slug) {
