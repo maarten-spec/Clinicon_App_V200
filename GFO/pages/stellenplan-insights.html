@@ -2605,6 +2605,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     if (startInput) startInput.addEventListener('change', applyCustomRange);
     if (endInput) endInput.addEventListener('change', applyCustomRange);
 
+    let deptTries = 0;
     const populateDepartments = async () => {
       if (!deptSelect) return;
       const apiBase = document.body.dataset.apiBase || "";
@@ -2616,6 +2617,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
           if (tenantId) break;
         }
+      }
+      if (!tenantId) {
+        deptTries += 1;
+        if (deptTries < 5) {
+          setTimeout(populateDepartments, 300);
+        }
+        return;
       }
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");

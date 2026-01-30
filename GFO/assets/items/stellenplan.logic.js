@@ -1137,6 +1137,15 @@ async function reload() {
 }
 
 async function init() {
+  const waitForContext = async () => {
+    for (let i = 0; i < 20; i += 1) {
+      const hasTenant = Boolean(sessionStorage.getItem("tenant_id"));
+      const hasEmail = Boolean((sessionStorage.getItem("user_email") || "").trim());
+      if (hasTenant && hasEmail) return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+  await waitForContext();
   await reload();
   const employeeBody = $(selectors.employeeBody);
   const extraBody = $(selectors.extraBody);
