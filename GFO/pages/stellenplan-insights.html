@@ -769,6 +769,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <button class="timeslicer-btn" type="button" data-range="quarter" data-label="Quartal">Quartal</button>
                   <button class="timeslicer-btn" type="button" data-range="year" data-label="Jahr">Jahr</button>
                 </div>
+                <div class="tenant-controls hidden" data-tenant-controls>
+                  <span class="tenant-label">Mandant</span>
+                  <select id="tenantSelect" class="tenant-select"></select>
+                  <span id="tenantLabel" class="tenant-value" style="display:none;"></span>
+                  <span class="tenant-label">Abteilung</span>
+                  <select id="departmentSelect" class="tenant-select"></select>
+                </div>
                 <div class="timeslicer-dept">
                   <label for="insightsDeptSelect">Abteilung / Station</label>
                   <select id="insightsDeptSelect">
@@ -2104,15 +2111,23 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     else el.classList.add("bad");
   }
 
-  function renderQuickcheck(agg) {
+  function renderQuickcheck(agg, data) {
     if (!elements.kpiFulfillment) return;
     elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
     elements.kpiFulfillmentSub.textContent = `${fmtNumber.format(agg.ist)} / ${fmtNumber.format(agg.soll)} VZÄ`;
     elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
 
-    elements.kpiQualCoverage.textContent = formatPercent(agg.qualCoverage || 0);
-    elements.kpiQualCoverageSub.textContent = "Pflichtqualifikationen";
-    elements.kpiQualCoverageProgress.style.width = `${Math.min(100, agg.qualCoverage || 0).toFixed(1)}%`;
+    const mandatoryList = Array.isArray(data && data.mandatory_quals) ? data.mandatory_quals : [];
+    const findByCode = (code) => mandatoryList.find((item) => String(item.code || "").toUpperCase() === code);
+    const pfk = findByCode("PFK");
+    const pfa = findByCode("PFA");
+    const mfa = findByCode("MFA");
+    const pfkIst = pfk ? normalizeNumber(pfk.ist_vza) : 0;
+    const pfaIst = pfa ? normalizeNumber(pfa.ist_vza) : 0;
+    const mfaIst = mfa ? normalizeNumber(mfa.ist_vza) : 0;
+    elements.kpiQualCoverage.textContent = "--";
+    elements.kpiQualCoverageSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
+    elements.kpiQualCoverageProgress.style.width = "0%";
 
     elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
     elements.kpiMutterschutzSub.textContent = "VZÄ";
@@ -2474,7 +2489,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       const sortedStations = sortStations(currentStations, sortKey);
       renderTable(sortedStations);
       const agg = aggregateStations(currentStations);
-      renderQuickcheck(agg);
+      renderQuickcheck(agg, data);
       renderQualSection(agg, data);
       updateHeaderMeta();
       updateCharts(data);
@@ -2505,8 +2520,11 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
+      const headers = { Accept: "application/json" };
+      const accessEmail = (sessionStorage.getItem("user_email") || "").trim();
+      if (accessEmail) headers["x-user-email"] = accessEmail;
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers });
       if (!response.ok) {
         throw new Error("API error");
       }
@@ -2545,28 +2563,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 </script>
 <script>
   (() => {
-    const pill = document.getElementById("tenantPill");
-    if (pill) {
-      const formatTenant = (value) => {
-        const raw = String(value || "").trim();
-        const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
-        if (normalized.startsWith("GFO") && normalized.length === 6) {
-          return `GFO-${normalized.slice(3)}`;
-        }
-        return raw.toUpperCase();
-      };
-      const segments = window.location.pathname.split("/").filter(Boolean);
-      const tenantSeg = segments[0] || "";
-      const cleaned = tenantSeg.replace(/[^a-z0-9]/gi, "");
-      if (cleaned) {
-        pill.textContent = `Mandant: ${formatTenant(tenantSeg)}`;
-      } else {
-        const stored = (sessionStorage.getItem("tenant_code") || "").trim();
-        if (stored) {
-          pill.textContent = `Mandant: ${formatTenant(stored)}`;
-        }
-      }
-    }
     const rangeLabel = document.querySelector('[data-range-label]');
     const headerRange = document.getElementById('dataRange');
     const rangeButtons = Array.from(document.querySelectorAll('.timeslicer-btn'));
@@ -2627,8 +2623,11 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       }
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
+      const headers = { Accept: "application/json" };
+      const accessEmail = (sessionStorage.getItem("user_email") || "").trim();
+      if (accessEmail) headers["x-user-email"] = accessEmail;
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }
