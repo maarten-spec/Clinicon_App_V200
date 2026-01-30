@@ -8,7 +8,7 @@
   <script>
     (function(){
       const API_BASE = "";
-      const FALLBACK_BASE = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const FALLBACK_BASE = "";
       const normalizeTenant = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const fallbackTarget = "pages/start.html" + (window.location.search || "") + (window.location.hash || "");
 
@@ -64,6 +64,7 @@
   <p>Weiterleitung zur Clinicon Suite Startseite ...</p>
 </body>
 </html>
+
 
 
 
