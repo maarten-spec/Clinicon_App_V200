@@ -2520,11 +2520,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      const headers = { Accept: "application/json" };
-      const accessEmail = (sessionStorage.getItem("user_email") || "").trim();
-      if (accessEmail) headers["x-user-email"] = accessEmail;
       try {
-        const response = await fetch(endpoint, { headers });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
       if (!response.ok) {
         throw new Error("API error");
       }
@@ -2623,11 +2620,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       }
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
-      const headers = { Accept: "application/json" };
-      const accessEmail = (sessionStorage.getItem("user_email") || "").trim();
-      if (accessEmail) headers["x-user-email"] = accessEmail;
       try {
-        const response = await fetch(endpoint, { headers });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }

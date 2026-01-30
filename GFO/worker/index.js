@@ -49,9 +49,9 @@ const QUALIFICATION_SEED = [
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
-  "access-control-allow-origin": "*",
+  "access-control-allow-origin": "https://app.clinicon.de",
   "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type, x-user-email"
+  "access-control-allow-headers": "content-type"
 };
 
 function jsonResponse(payload, status = 200) {
@@ -101,7 +101,6 @@ function getAuthEmail(request) {
   return (
     request.headers.get("cf-access-authenticated-user-email") ||
     request.headers.get("CF-Access-Authenticated-User-Email") ||
-    request.headers.get("x-user-email") ||
     ""
   ).trim();
 }
@@ -176,7 +175,7 @@ async function resolveDepartment(db, request, payloadDeptId, tenantId) {
     toInt(url.searchParams.get("department_id"), null) ||
     toInt(payloadDeptId, null);
   const departments = await listDepartments(db, tenantId);
-  const active = departments.find((d) => d.id === requestedId) || departments[0] || null;
+  const active = requestedId ? (departments.find((d) => d.id === requestedId) || null) : null;
   return { departments, department: active };
 }
 
@@ -233,6 +232,9 @@ async function handleGetStellenplan(request, env) {
   const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
   const deptContext = await resolveDepartment(db, request, null, tenantId);
   const departmentId = deptContext.department ? deptContext.department.id : null;
+  if (!tenantId || !departmentId) {
+    return badRequest("tenant_id and department_id are required.");
+  }
 
   await ensureQualifications(db);
 
@@ -245,11 +247,11 @@ async function handleGetStellenplan(request, env) {
     "FROM employees WHERE is_active=1";
   const employeeParams = [];
   if (tenantId) {
-    employeeSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    employeeSql += " AND tenant_id=?";
     employeeParams.push(tenantId);
   }
   if (departmentId) {
-    employeeSql += " AND (department_id=? OR department_id IS NULL)";
+    employeeSql += " AND department_id=?";
     employeeParams.push(departmentId);
   }
   employeeSql += " ORDER BY id ASC";
@@ -269,11 +271,11 @@ async function handleGetStellenplan(request, env) {
   let monthSql = "SELECT employee_id, month, value FROM employee_month_values WHERE year=?";
   const monthParams = [year];
   if (tenantId) {
-    monthSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    monthSql += " AND tenant_id=?";
     monthParams.push(tenantId);
   }
   if (departmentId) {
-    monthSql += " AND (department_id=? OR department_id IS NULL)";
+    monthSql += " AND department_id=?";
     monthParams.push(departmentId);
   }
   const monthValues = await db.prepare(monthSql).bind(...monthParams).all();
@@ -281,11 +283,11 @@ async function handleGetStellenplan(request, env) {
   let flagsSql = "SELECT employee_id, month, code FROM employee_month_flags WHERE year=?";
   const flagsParams = [year];
   if (tenantId) {
-    flagsSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+    flagsSql += " AND tenant_id=?";
     flagsParams.push(tenantId);
   }
   if (departmentId) {
-    flagsSql += " AND (department_id=? OR department_id IS NULL)";
+    flagsSql += " AND department_id=?";
     flagsParams.push(departmentId);
   }
   const flagsRows = await db.prepare(flagsSql).bind(...flagsParams).all();
@@ -476,6 +478,9 @@ async function handlePostStellenplan(request, env) {
   const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
   const deptContext = await resolveDepartment(db, request, payload.departmentId, tenantId);
   const departmentId = deptContext.department ? deptContext.department.id : null;
+  if (!tenantId || !departmentId) {
+    return badRequest("tenant_id and department_id are required.");
+  }
   const scopeKey = buildScopeKey(tenantId, departmentId);
 
   const upsertFlag = async (employeeId, year, month, code, value, tenantId, departmentId) => {
@@ -511,7 +516,7 @@ async function handlePostStellenplan(request, env) {
           "INSERT INTO employee_month_values (employee_id, year, month, value, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?) " +
             "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
         )
-        .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
+        .bind(employeeId, year, month, value, tenantId, departmentId)
         .run();
       if (isFlagCode(absenceCode)) {
         await upsertFlag(employeeId, year, month, absenceCode, 1, tenantId, departmentId);
@@ -534,7 +539,7 @@ async function handlePostStellenplan(request, env) {
           "INSERT INTO employee_month_values (employee_id, year, month, value, tenant_id, department_id) VALUES (?, ?, ?, ?, ?, ?) " +
             "ON CONFLICT(employee_id, year, month) DO UPDATE SET value=excluded.value, tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
         )
-        .bind(employeeId, year, month, value, tenantId || null, departmentId || null)
+        .bind(employeeId, year, month, value, tenantId, departmentId)
         .run();
       if (isFlagCode(absenceCode)) {
         await upsertFlag(employeeId, year, month, absenceCode, 1, tenantId, departmentId);
@@ -625,7 +630,7 @@ async function handlePostSollwert(request, env) {
         "ON CONFLICT(year, scope) DO UPDATE SET value=excluded.value, method=excluded.method, inputs_json=excluded.inputs_json, " +
         "tenant_id=excluded.tenant_id, department_id=excluded.department_id, updated_at=datetime('now')"
     )
-    .bind(year, value, method, inputsJson, scopeKey, tenantId || null, departmentId || null)
+    .bind(year, value, method, inputsJson, scopeKey, tenantId, departmentId)
     .run();
 
   return jsonResponse({ ok: true });
@@ -654,11 +659,11 @@ async function handleGetSummary(request, env) {
     "WHERE v.year=? AND e.category=?";
   const mainParams = [year, CATEGORY_MAIN];
   if (tenantId) {
-    mainSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+    mainSql += " AND e.tenant_id=?";
     mainParams.push(tenantId);
   }
   if (departmentId) {
-    mainSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+    mainSql += " AND e.department_id=?";
     mainParams.push(departmentId);
   }
   mainSql += " GROUP BY month";
@@ -670,11 +675,11 @@ async function handleGetSummary(request, env) {
     "WHERE v.year=? AND e.category=?";
   const extraParams = [year, CATEGORY_EXTRA];
   if (tenantId) {
-    extraSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+    extraSql += " AND e.tenant_id=?";
     extraParams.push(tenantId);
   }
   if (departmentId) {
-    extraSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+    extraSql += " AND e.department_id=?";
     extraParams.push(departmentId);
   }
   extraSql += " GROUP BY month";
@@ -768,7 +773,7 @@ async function handleGetInsights(request, env) {
           "LEFT JOIN staffing_actuals act ON act.station_id=s.id AND act.year=? AND act.month=? " +
           "LEFT JOIN ppug_status pp ON pp.station_id=s.id AND pp.year=? AND pp.month=? " +
           "WHERE s.is_active=1 " +
-          (tenantId ? "AND (s.tenant_id=? OR s.tenant_id IS NULL) " : "") +
+          (tenantId ? "AND s.tenant_id=? " : "") +
           "ORDER BY s.name ASC"
       )
     .bind(
@@ -796,7 +801,7 @@ async function handleGetInsights(request, env) {
     .prepare(
       "SELECT station_id, qualification_id, SUM(vk_value) AS total " +
         "FROM station_qualification_mix WHERE year=? AND month=? " +
-        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        (tenantId ? "AND tenant_id=? " : "") +
         "GROUP BY station_id, qualification_id"
     )
     .bind(...[year, month, ...(tenantId ? [tenantId] : [])])
@@ -842,7 +847,7 @@ async function handleGetInsights(request, env) {
     .prepare(
       "SELECT department_id, code, SUM(value) AS total " +
         "FROM employee_month_flags WHERE year=? AND month=? " +
-        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        (tenantId ? "AND tenant_id=? " : "") +
         "GROUP BY department_id, code"
     )
     .bind(...[year, month, ...(tenantId ? [tenantId] : [])])
@@ -933,11 +938,11 @@ async function handleGetInsights(request, env) {
         "WHERE v.year=? AND v.month=? AND e.category='main'";
       const empParams = [year, month];
       if (tenantId) {
-        empSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+        empSql += " AND e.tenant_id=?";
         empParams.push(tenantId);
       }
       if (Number.isFinite(deptId)) {
-        empSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+        empSql += " AND e.department_id=?";
         empParams.push(deptId);
       }
       empSql += " GROUP BY e.department_id, dept_label ORDER BY dept_label";
@@ -968,7 +973,7 @@ async function handleGetInsights(request, env) {
       actualTotals = await db
         .prepare(
           "SELECT month, SUM(vk_ist) AS total FROM staffing_actuals WHERE year=? " +
-            (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+            (tenantId ? "AND tenant_id=? " : "") +
             "GROUP BY month"
         )
         .bind(...[year, ...(tenantId ? [tenantId] : [])])
@@ -981,11 +986,11 @@ async function handleGetInsights(request, env) {
         "WHERE v.year=? AND e.category='main'";
       const empTotalParams = [year];
       if (tenantId) {
-        empTotalSql += " AND (e.tenant_id=? OR e.tenant_id IS NULL)";
+        empTotalSql += " AND e.tenant_id=?";
         empTotalParams.push(tenantId);
       }
       if (deptId) {
-        empTotalSql += " AND (e.department_id=? OR e.department_id IS NULL)";
+        empTotalSql += " AND e.department_id=?";
         empTotalParams.push(deptId);
       }
       empTotalSql += " GROUP BY v.month";
@@ -995,7 +1000,7 @@ async function handleGetInsights(request, env) {
   let planTotals = await db
     .prepare(
       "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
-        (tenantId ? "AND (tenant_id=? OR tenant_id IS NULL) " : "") +
+        (tenantId ? "AND tenant_id=? " : "") +
         "GROUP BY month"
     )
     .bind(...[year, ...(tenantId ? [tenantId] : [])])
@@ -1005,11 +1010,11 @@ async function handleGetInsights(request, env) {
       "SELECT month, SUM(value) AS total FROM wirtschaftsplan_targets WHERE year=? AND scope='total'";
     const planParams = [year];
     if (tenantId) {
-      planSql += " AND (tenant_id=? OR tenant_id IS NULL)";
+      planSql += " AND tenant_id=?";
       planParams.push(tenantId);
     }
     if (deptId) {
-      planSql += " AND (department_id=? OR department_id IS NULL)";
+      planSql += " AND department_id=?";
       planParams.push(deptId);
     }
     planSql += " GROUP BY month";

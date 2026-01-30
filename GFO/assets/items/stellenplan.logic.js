@@ -127,25 +127,8 @@ function getContextIds() {
   };
 }
 
-async function getAccessEmail() {
-  const cached = (sessionStorage.getItem("user_email") || "").trim();
-  if (cached) return cached;
-  try {
-    const res = await fetch("/cdn-cgi/access/get-identity", { credentials: "same-origin" });
-    if (!res.ok) return "";
-    const data = await res.json();
-    const email = data && (data.email || data.user_email || data.user) ? String(data.email || data.user_email || data.user) : "";
-    if (email) sessionStorage.setItem("user_email", email);
-    return email;
-  } catch (err) {
-    return "";
-  }
-}
-
 async function fetchJson(url, options = {}) {
-  const storedEmail = await getAccessEmail();
   const headers = { "content-type": "application/json" };
-  if (storedEmail) headers["x-user-email"] = storedEmail;
   const response = await fetch(`${getApiBase()}${url}`, {
     headers,
     ...options

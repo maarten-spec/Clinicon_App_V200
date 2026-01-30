@@ -590,6 +590,7 @@
           <p>Farbiges KPI-Dashboard mit Demo-Daten fuer erste Tests.</p>
         </div>
         <div class="topbar-actions app-actions" data-app-actions>
+          <span class="pill app-pill" id="tenantPill" style="display:none;"></span>
           <span class="pill app-pill" id="userEmailPill" style="display:none;"></span>
           <button class="button app-button secondary" id="refreshButton" type="button">Aktualisieren</button>
           <button class="button app-button primary" type="button">Report exportieren</button>
@@ -635,6 +636,7 @@
         if (!tenantPill) return;
         const clean = label ? formatTenantDisplay(label) : "Demo";
         tenantPill.textContent = `Mandant: ${clean}`;
+        tenantPill.style.display = "inline-flex";
       };
       if (pathTenantInfo.raw) {
         setTenantPill(pathTenantInfo.raw);
@@ -742,9 +744,6 @@
           userEmailPill.style.display = "inline-flex";
         }
         const tenantHeaders = { Accept: "application/json" };
-        if (accessEmail) {
-          tenantHeaders["x-user-email"] = accessEmail;
-        }
         const buildTenantUrl = (base) => `${base}/api/tenants`;
         const cacheKey = "tenant_cache";
         const cacheTtl = 5 * 60 * 1000;
