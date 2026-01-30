@@ -108,10 +108,6 @@ function getApiBase() {
   return (document.body && document.body.dataset && document.body.dataset.apiBase) ? document.body.dataset.apiBase : API_BASE;
 }
 
-function getDevTenantParam() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("devTenant") || "";
-}
 
 function getContextIds() {
   const body = document.body || {};
@@ -153,8 +149,6 @@ async function loadPlan(year) {
   const params = new URLSearchParams({ year: String(year) });
   if (context.tenantId) params.set("tenant", String(context.tenantId));
   if (context.departmentId) params.set("department", String(context.departmentId));
-  const devTenant = getDevTenantParam();
-  if (devTenant) params.set("devTenant", devTenant);
   const data = await fetchJson(`/api/stellenplan?${params.toString()}`);
   state.year = data.year || year;
   if (data.tenant && data.tenant.id) {
@@ -186,8 +180,6 @@ async function loadSollwert(year) {
   const params = new URLSearchParams({ year: String(year) });
   if (context.tenantId) params.set("tenant", String(context.tenantId));
   if (context.departmentId) params.set("department", String(context.departmentId));
-  const devTenant = getDevTenantParam();
-  if (devTenant) params.set("devTenant", devTenant);
   try {
     const data = await fetchJson(`/api/stellenplan/sollwert?${params.toString()}`);
     if (data && data.ok) {
@@ -959,21 +951,22 @@ async function bindControls() {
     const stationSelect = $(selectors.stationSelect);
     if (stationSelect) {
       const ctx = getContextIds();
-      if (ctx.tenantId) {
-        try {
-          const deptData = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
-          const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
-          if (departments.length) {
-            stationSelect.innerHTML = departments
-              .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
-              .join("");
-            const selected = ctx.departmentId || departments[0].id;
-            stationSelect.value = String(selected);
-            state.departmentId = selected;
-          }
-        } catch (err) {
-          // ignore
+      try {
+        let deptData = null;
+        if (ctx.tenantId) {
+          deptData = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
         }
+        const departments = Array.isArray(deptData?.departments) ? deptData.departments : [];
+        if (departments.length) {
+          stationSelect.innerHTML = departments
+            .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
+            .join("");
+          const selected = ctx.departmentId || departments[0].id;
+          stationSelect.value = String(selected);
+          state.departmentId = selected;
+        }
+      } catch (err) {
+        // ignore
       }
       stationSelect.addEventListener("change", () => {
         const selectedId = Number.parseInt(stationSelect.value, 10);

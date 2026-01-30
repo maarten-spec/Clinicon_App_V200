@@ -116,27 +116,10 @@ async function listTenants(db) {
 async function resolveTenantContext(db, request, payloadTenantId) {
   const email = getAuthEmail(request);
   const url = new URL(request.url);
-  const devTenantCode = normalizeText(url.searchParams.get("devTenant")).toUpperCase();
   const allTenants = await listTenants(db);
 
   if (!email) {
-    if (devTenantCode) {
-      const match = allTenants.find((t) => String(t.code || "").toUpperCase() === devTenantCode);
-      if (match) {
-        return {
-          email: "",
-          role: "tenant",
-          tenants: [match],
-          tenant: match
-        };
-      }
-    }
-    return {
-      email: "",
-      role: "admin",
-      tenants: allTenants,
-      tenant: allTenants[0] || null
-    };
+    return { error: "unauthorized" };
   }
 
   const rows = await db

@@ -1923,10 +1923,17 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     },
     trend: [
       { date: "2026-01-01", occupancy_pct: 78, staffed_hours: 320, required_hours: 340 },
-      { date: "2026-01-02", occupancy_pct: 81, staffed_hours: 330, required_hours: 342 },
-      { date: "2026-01-03", occupancy_pct: 84, staffed_hours: 315, required_hours: 340 },
-      { date: "2026-01-04", occupancy_pct: 83, staffed_hours: 326, required_hours: 339 },
-      { date: "2026-01-05", occupancy_pct: 87, staffed_hours: 336, required_hours: 340 }
+      { date: "2026-02-01", occupancy_pct: 81, staffed_hours: 330, required_hours: 342 },
+      { date: "2026-03-01", occupancy_pct: 84, staffed_hours: 315, required_hours: 340 },
+      { date: "2026-04-01", occupancy_pct: 83, staffed_hours: 326, required_hours: 339 },
+      { date: "2026-05-01", occupancy_pct: 87, staffed_hours: 336, required_hours: 340 },
+      { date: "2026-06-01", occupancy_pct: 86, staffed_hours: 332, required_hours: 338 },
+      { date: "2026-07-01", occupancy_pct: 82, staffed_hours: 325, required_hours: 336 },
+      { date: "2026-08-01", occupancy_pct: 80, staffed_hours: 320, required_hours: 335 },
+      { date: "2026-09-01", occupancy_pct: 83, staffed_hours: 328, required_hours: 337 },
+      { date: "2026-10-01", occupancy_pct: 85, staffed_hours: 334, required_hours: 339 },
+      { date: "2026-11-01", occupancy_pct: 86, staffed_hours: 336, required_hours: 340 },
+      { date: "2026-12-01", occupancy_pct: 88, staffed_hours: 340, required_hours: 342 }
     ],
       stations: [
         { station: "Station 1", beds_planned: 20, beds_occupied: 16, occupancy_pct: 80.0, qual_mix_label: "Pflegefachkraft", variance_hours: -6.0 },
@@ -2219,7 +2226,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       charts.trend = new Chart(trendCtx, {
         type: "line",
         data: {
-          labels: data.trend.map((row) => row.date),
+          labels: data.trend.map((row, idx) => monthLabelFromDate(row.date, idx)),
           datasets: [
             {
               label: "VK Gesamt Haus IST",
@@ -2246,14 +2253,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
             legend: { position: "top", labels: { boxWidth: 12 } }
           },
           scales: {
-            x: {
-              ticks: {
-                callback: function (value) {
-                  const label = this.getLabelForValue ? this.getLabelForValue(value) : value;
-                  return monthLabelFromDate(label, value);
-                }
-              }
-            },
+            x: { ticks: { autoSkip: false } },
             y: { beginAtZero: true },
             y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false } }
           }
@@ -2404,7 +2404,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         return;
       }
       if (charts.trend) {
-        charts.trend.data.labels = data.trend.map((row) => row.date);
+        charts.trend.data.labels = data.trend.map((row, idx) => monthLabelFromDate(row.date, idx));
         charts.trend.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
         charts.trend.data.datasets[1].data = data.trend.map((row) => row.required_hours);
         charts.trend.update();
@@ -2476,10 +2476,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       const departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
-      const devTenant = new URLSearchParams(window.location.search).get("devTenant") || "";
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
-      if (devTenant) params.set("devTenant", devTenant);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       try {
         const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
@@ -2518,6 +2516,28 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 </script>
 <script>
   (() => {
+    const pill = document.getElementById("tenantPill");
+    if (pill) {
+      const formatTenant = (value) => {
+        const raw = String(value || "").trim();
+        const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+        if (normalized.startsWith("GFO") && normalized.length === 6) {
+          return `GFO-${normalized.slice(3)}`;
+        }
+        return raw.toUpperCase();
+      };
+      const segments = window.location.pathname.split("/").filter(Boolean);
+      const tenantSeg = segments[0] || "";
+      const cleaned = tenantSeg.replace(/[^a-z0-9]/gi, "");
+      if (cleaned) {
+        pill.textContent = `Mandant: ${formatTenant(tenantSeg)}`;
+      } else {
+        const stored = (sessionStorage.getItem("tenant_code") || "").trim();
+        if (stored) {
+          pill.textContent = `Mandant: ${formatTenant(stored)}`;
+        }
+      }
+    }
     const rangeLabel = document.querySelector('[data-range-label]');
     const headerRange = document.getElementById('dataRange');
     const rangeButtons = Array.from(document.querySelectorAll('.timeslicer-btn'));
@@ -2561,9 +2581,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       const apiBase = document.body.dataset.apiBase || "";
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
-      const devTenant = new URLSearchParams(window.location.search).get("devTenant") || "";
       if (tenantId) params.set("tenant", tenantId);
-      if (!tenantId && devTenant) params.set("devTenant", devTenant);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
         const response = await fetch(endpoint, { headers: { Accept: "application/json" } });

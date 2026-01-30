@@ -681,18 +681,13 @@
           sessionStorage.setItem("tenant_code", pathTenantDisplay);
         }
         const urlParams = new URLSearchParams(window.location.search);
-        const devTenant = urlParams.get("devTenant");
-        if (devTenant) {
-          setTenantPill(devTenant);
-          sessionStorage.setItem("tenant_code", devTenant);
-        }
+        const devTenant = null;
         const accessEmail = await getAccessEmail();
         const tenantHeaders = { Accept: "application/json" };
         if (accessEmail) {
           tenantHeaders["x-user-email"] = accessEmail;
         }
-        const buildTenantUrl = (base) =>
-          devTenant ? `${base}/api/tenants?devTenant=${encodeURIComponent(devTenant)}` : `${base}/api/tenants`;
+        const buildTenantUrl = (base) => `${base}/api/tenants`;
         const cacheKey = "tenant_cache";
         const cacheTtl = 5 * 60 * 1000;
         const cachedRaw = sessionStorage.getItem(cacheKey);
@@ -738,8 +733,9 @@
           sessionStorage.setItem("tenant_id", String(resolvedTenantId));
         }
         const activeTenant = tenants.find((t) => t.id === resolvedTenantId) || tenants[0];
-        if (!pathTenantDisplay && activeTenant && (activeTenant.name || activeTenant.code)) {
+        if (activeTenant && (activeTenant.name || activeTenant.code)) {
           setTenantPill(activeTenant.name || activeTenant.code);
+          sessionStorage.setItem("tenant_code", formatTenantDisplay(activeTenant.name || activeTenant.code));
         }
 
         const needsTenantRedirect = !pathTenantKey && activeTenant;
@@ -755,7 +751,7 @@
         }
 
         const buildDeptUrl = (base) =>
-          `${base}/api/departments?tenant=${activeTenantId || ""}${devTenant ? `&devTenant=${encodeURIComponent(devTenant)}` : ""}`;
+          `${base}/api/departments?tenant=${activeTenantId || ""}`;
         let deptRes = await fetch(buildDeptUrl(apiBase), { headers: tenantHeaders });
         if (!deptRes.ok) {
           deptRes = await fetch(buildDeptUrl("https://clinicon-stellenplan.maarten-koomen.workers.dev"), { headers: tenantHeaders });
