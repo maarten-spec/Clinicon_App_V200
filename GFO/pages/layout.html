@@ -590,6 +590,7 @@
           <p>Farbiges KPI-Dashboard mit Demo-Daten fuer erste Tests.</p>
         </div>
         <div class="topbar-actions app-actions" data-app-actions>
+          <span class="pill app-pill" id="userEmailPill" style="display:none;"></span>
           <button class="button app-button secondary" id="refreshButton" type="button">Aktualisieren</button>
           <button class="button app-button primary" type="button">Report exportieren</button>
           <a class="button app-button secondary logout-link" href="/cdn-cgi/access/logout">Logout</a>
@@ -612,6 +613,7 @@
       const departmentSelect = document.getElementById("departmentSelect");
       const tenantLabel = document.getElementById("tenantLabel");
       const tenantPill = document.getElementById("tenantPill");
+      const userEmailPill = document.getElementById("userEmailPill");
       const pathTenantInfo = (() => {
         const segments = window.location.pathname.split("/").filter(Boolean);
         if (!segments.length) return { key: "", raw: "" };
@@ -642,7 +644,68 @@
         if (storedCode) setTenantPill(storedCode);
       }
 
-      if (!controls || !tenantSelect || !departmentSelect) return;
+      const attachTenantControls = async () => {
+        const controlsNode = document.querySelector("[data-tenant-controls]");
+        const tenantSelectNode = document.getElementById("tenantSelect");
+        const departmentSelectNode = document.getElementById("departmentSelect");
+        if (!controlsNode || !tenantSelectNode || !departmentSelectNode) return false;
+        const showTenant = role === "admin" || role === "zpd";
+
+        tenantSelectNode.innerHTML = tenants
+          .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
+          .join("");
+        if (resolvedTenantId) {
+          tenantSelectNode.value = String(resolvedTenantId);
+        }
+
+        const buildDeptUrl = (base) =>
+          `${base}/api/departments?tenant=${resolvedTenantId || ""}`;
+        let deptRes = await fetch(buildDeptUrl(apiBase), { headers: tenantHeaders });
+        if (!deptRes.ok) {
+          deptRes = await fetch(buildDeptUrl("https://clinicon-stellenplan.maarten-koomen.workers.dev"), { headers: tenantHeaders });
+        }
+        const deptData = deptRes.ok ? await deptRes.json() : { departments: [] };
+        const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
+        const storedDept = Number.parseInt(sessionStorage.getItem("department_id"), 10);
+        const activeDeptId = Number.isFinite(storedDept)
+          ? storedDept
+          : (departments[0] && departments[0].id);
+
+        departmentSelectNode.innerHTML = departments
+          .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
+          .join("");
+        if (activeDeptId) {
+          departmentSelectNode.value = String(activeDeptId);
+          document.body.dataset.departmentId = String(activeDeptId);
+        }
+
+        controlsNode.classList.remove("hidden");
+        if (!showTenant) {
+          tenantSelectNode.style.display = "none";
+          if (tenantLabel && resolvedTenantId) {
+            const activeTenant = tenants.find((t) => t.id === resolvedTenantId);
+            tenantLabel.textContent = activeTenant ? (activeTenant.name || activeTenant.code) : "";
+            tenantLabel.style.display = "inline-flex";
+          }
+        } else if (tenantLabel) {
+          tenantLabel.style.display = "none";
+        }
+
+        if (showTenant) {
+          tenantSelectNode.addEventListener("change", () => {
+            sessionStorage.setItem("tenant_id", tenantSelectNode.value);
+            sessionStorage.removeItem("department_id");
+            window.location.reload();
+          });
+        }
+
+        departmentSelectNode.addEventListener("change", () => {
+          sessionStorage.setItem("department_id", departmentSelectNode.value);
+          window.location.reload();
+        });
+
+        return true;
+      };
 
       try {
         // formatTenantDisplay + setTenantPill defined above for early fallback
@@ -674,6 +737,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = null;
         const accessEmail = await getAccessEmail();
+        if (userEmailPill && accessEmail) {
+          userEmailPill.textContent = accessEmail;
+          userEmailPill.style.display = "inline-flex";
+        }
         const tenantHeaders = { Accept: "application/json" };
         if (accessEmail) {
           tenantHeaders["x-user-email"] = accessEmail;
@@ -704,7 +771,6 @@
         }
         const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
         const role = tenantData.role || "tenant";
-        const showTenant = role === "admin" || role === "zpd";
 
         const storedTenant = Number.parseInt(sessionStorage.getItem("tenant_id"), 10);
         const activeTenantId = Number.isFinite(storedTenant)
@@ -715,11 +781,7 @@
           : null;
         const resolvedTenantId = matchedPathTenant ? matchedPathTenant.id : activeTenantId;
 
-        tenantSelect.innerHTML = tenants
-          .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
-          .join("");
         if (resolvedTenantId) {
-          tenantSelect.value = String(resolvedTenantId);
           document.body.dataset.tenantId = String(resolvedTenantId);
           sessionStorage.setItem("tenant_id", String(resolvedTenantId));
         }
@@ -741,51 +803,15 @@
           }
         }
 
-        const buildDeptUrl = (base) =>
-          `${base}/api/departments?tenant=${activeTenantId || ""}`;
-        let deptRes = await fetch(buildDeptUrl(apiBase), { headers: tenantHeaders });
-        if (!deptRes.ok) {
-          deptRes = await fetch(buildDeptUrl("https://clinicon-stellenplan.maarten-koomen.workers.dev"), { headers: tenantHeaders });
-        }
-        const deptData = deptRes.ok ? await deptRes.json() : { departments: [] };
-        const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
-        const storedDept = Number.parseInt(sessionStorage.getItem("department_id"), 10);
-        const activeDeptId = Number.isFinite(storedDept)
-          ? storedDept
-          : (departments[0] && departments[0].id);
-
-        departmentSelect.innerHTML = departments
-          .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
-          .join("");
-        if (activeDeptId) {
-          departmentSelect.value = String(activeDeptId);
-          document.body.dataset.departmentId = String(activeDeptId);
-        }
-
-        controls.classList.remove("hidden");
-        if (!showTenant) {
-          tenantSelect.style.display = "none";
-          if (tenantLabel && activeTenantId) {
-            const activeTenant = tenants.find((t) => t.id === activeTenantId);
-            tenantLabel.textContent = activeTenant ? (activeTenant.name || activeTenant.code) : "";
-            tenantLabel.style.display = "inline-flex";
+        let tries = 0;
+        const retryAttach = async () => {
+          tries += 1;
+          const attached = await attachTenantControls();
+          if (!attached && tries < 10) {
+            setTimeout(retryAttach, 200);
           }
-        } else if (tenantLabel) {
-          tenantLabel.style.display = "none";
-        }
-
-        if (showTenant) {
-          tenantSelect.addEventListener("change", () => {
-            sessionStorage.setItem("tenant_id", tenantSelect.value);
-            sessionStorage.removeItem("department_id");
-            window.location.reload();
-          });
-        }
-
-        departmentSelect.addEventListener("change", () => {
-          sessionStorage.setItem("department_id", departmentSelect.value);
-          window.location.reload();
-        });
+        };
+        retryAttach();
       } catch (err) {
         const fallback = (sessionStorage.getItem("tenant_code") || "").trim();
         if (fallback) {
