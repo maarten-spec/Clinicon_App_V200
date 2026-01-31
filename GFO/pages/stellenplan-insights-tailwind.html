@@ -2238,19 +2238,22 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
   function updateHeaderMeta() {
     const segments = window.location.pathname.split("/").filter(Boolean);
-    const raw = segments[0] || "";
+    const rawSegment = segments[0] || "";
+    const reserved = new Set(["pages", "assets", "api", "cdn-cgi"]);
+    const raw = reserved.has(rawSegment.toLowerCase()) ? "" : rawSegment;
     const cleaned = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
-    let verbund = cleaned.slice(0, 3) || "GFO";
-    let mandant = cleaned;
+    let verbund = "GFO";
+    let mandant = "";
     if (cleaned.startsWith("GFO") && cleaned.length >= 6) {
-      verbund = "GFO";
       mandant = `GFO-${cleaned.slice(3)}`;
+    } else if (cleaned) {
+      mandant = cleaned;
     }
     const sessionMandant = sessionStorage.getItem("tenant_code") || "";
     if (sessionMandant) {
       mandant = sessionMandant;
     }
-    if (elements.insightsVerbund) elements.insightsVerbund.textContent = verbund || "GFO";
+    if (elements.insightsVerbund) elements.insightsVerbund.textContent = verbund;
     if (elements.insightsMandant) elements.insightsMandant.textContent = mandant || "--";
     const deptSelect = document.getElementById("insightsDeptSelect");
     if (elements.insightsFilterLabel) {
@@ -2752,7 +2755,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       });
     };
 
-    fetch("./layout.html?v=20260201")
+    fetch("./layout.html?v=20260202")
       .then((r) => {
         if (!r.ok) {
           throw new Error(`Layout HTTP ${r.status}`);
@@ -2769,6 +2772,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   </script>
 </body>
 </html>
+
 
 
 

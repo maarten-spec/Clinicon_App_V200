@@ -646,12 +646,14 @@
         if (storedCode) setTenantPill(storedCode);
       }
 
-      const attachTenantControls = async () => {
+        let role = "tenant";
+
+        const attachTenantControls = async () => {
         const controlsNode = document.querySelector("[data-tenant-controls]");
         const tenantSelectNode = document.getElementById("tenantSelect");
         const departmentSelectNode = document.getElementById("departmentSelect");
         if (!controlsNode || !tenantSelectNode || !departmentSelectNode) return false;
-        const showTenant = role === "admin" || role === "zpd";
+          const showTenant = role === "admin" || role === "zpd";
 
         tenantSelectNode.innerHTML = tenants
           .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
@@ -762,8 +764,8 @@
           tenantData = await tenantRes.json();
           sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: tenantData }));
         }
-        const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
-        const role = tenantData.role || "tenant";
+          const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
+          role = tenantData.role || "tenant";
 
         const storedTenant = Number.parseInt(sessionStorage.getItem("tenant_id"), 10);
         const activeTenantId = Number.isFinite(storedTenant)
