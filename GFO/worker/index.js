@@ -849,6 +849,7 @@ async function handleGetInsights(request, env) {
 
   let empTotalsRows = null;
   const empTotalsByDept = new Map();
+  let empTotalsSum = 0;
   {
     let empSql =
       "SELECT e.department_id AS dept_id, " +
@@ -870,9 +871,11 @@ async function handleGetInsights(request, env) {
     empTotalsRows = await db.prepare(empSql).bind(...empParams).all();
     for (const row of empTotalsRows.results || []) {
       const key = normalizeKey(row.dept_label || "");
+      const total = normalizeNumber(row.total);
       if (key) {
-        empTotalsByDept.set(key, normalizeNumber(row.total));
+        empTotalsByDept.set(key, total);
       }
+      empTotalsSum += total;
     }
   }
 
@@ -900,7 +903,8 @@ async function handleGetInsights(request, env) {
     if (code === "KOL") agg.kol += normalizeNumber(row.total);
   }
 
-    let stations = (hasStationData ? stationRowsList : []).map((row) => {
+    const useEmpTotals = empTotalsSum > 0;
+    let stations = useEmpTotals ? [] : (hasStationData ? stationRowsList : []).map((row) => {
       const vkSoll = normalizeNumber(row.vk_soll);
       let vkIst = normalizeNumber(row.vk_ist);
       const stationKey = normalizeKey(row.name || row.code || "");
@@ -951,6 +955,29 @@ async function handleGetInsights(request, env) {
         kol_vza: abs.kol
       };
     });
+
+    if (useEmpTotals) {
+      stations = (deptRows.results || []).map((row) => {
+        const stationKey = normalizeKey(row.name || row.code || "");
+        const vkIst = empTotalsByDept.get(stationKey) || 0;
+        const abs = absenceByDept.get(row.id) || { ms: 0, ez: 0, kol: 0 };
+        return {
+          station: normalizeText(row.name || row.code || "Station"),
+          beds_planned: 0,
+          beds_occupied: vkIst,
+          occupancy_pct: 0,
+          qual_mix_label: "Keine Angabe",
+          variance_hours: vkIst,
+          soll_vza: 0,
+          ist_vza: vkIst,
+          fulfillment_pct: 0,
+          qual_coverage_pct: 0,
+          mutterschutz_vza: abs.ms,
+          elternzeit_vza: abs.ez,
+          kol_vza: abs.kol
+        };
+      });
+    }
 
     // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
     if (!stations.length) {
@@ -1031,7 +1058,7 @@ async function handleGetInsights(request, env) {
     planTotals = await db.prepare(planSql).bind(...planParams).all();
   }
 
-  if (!hasStationData) {
+  if (useEmpTotals || !hasStationData) {
     let qualSql =
       "SELECT e.qualification_id AS qualification_id, SUM(v.value) AS total " +
       "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
