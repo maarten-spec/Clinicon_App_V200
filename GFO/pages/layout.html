@@ -650,6 +650,7 @@
         let tenants = [];
         let tenantData = null;
         let resolvedTenantId = null;
+        const tenantHeaders = { Accept: "application/json" };
 
         const attachTenantControls = async () => {
           const controlsNode = document.querySelector("[data-tenant-controls]");
@@ -746,7 +747,6 @@
           userEmailPill.textContent = accessEmail;
           userEmailPill.style.display = "inline-flex";
         }
-        const tenantHeaders = { Accept: "application/json" };
         const buildTenantUrl = (base) => `${base}/api/tenants`;
         const cacheKey = "tenant_cache";
         const cacheTtl = 5 * 60 * 1000;
