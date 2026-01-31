@@ -2114,9 +2114,17 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
   function renderQuickcheck(agg, data) {
     if (!elements.kpiFulfillment) return;
-    elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
-    elements.kpiFulfillmentSub.textContent = `${fmtNumber.format(agg.ist)} / ${fmtNumber.format(agg.soll)} VZÄ`;
-    elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
+    const totalIst = normalizeNumber(agg.ist);
+    const totalSoll = normalizeNumber(agg.soll);
+    if (totalSoll > 0) {
+      elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
+      elements.kpiFulfillmentSub.textContent = `${fmtNumber.format(totalIst)} / ${fmtNumber.format(totalSoll)} VZ??`;
+      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
+    } else {
+      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZ??`;
+      elements.kpiFulfillmentSub.textContent = "IST gesamt (kein SOLL hinterlegt)";
+      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, totalIst * 12).toFixed(1)}%`;
+    }
 
     const mandatoryList = Array.isArray(data && data.mandatory_quals) ? data.mandatory_quals : [];
     const findByCode = (code) => mandatoryList.find((item) => String(item.code || "").toUpperCase() === code);
@@ -2126,24 +2134,25 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const pfkIst = pfk ? normalizeNumber(pfk.ist_vza) : 0;
     const pfaIst = pfa ? normalizeNumber(pfa.ist_vza) : 0;
     const mfaIst = mfa ? normalizeNumber(mfa.ist_vza) : 0;
-    elements.kpiQualCoverage.textContent = "--";
+    const qualSum = pfkIst + pfaIst + mfaIst;
+    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZ??` : "--";
     elements.kpiQualCoverageSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
-    elements.kpiQualCoverageProgress.style.width = "0%";
+    elements.kpiQualCoverageProgress.style.width = `${Math.min(100, qualSum * 12).toFixed(1)}%`;
 
     elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
-    elements.kpiMutterschutzSub.textContent = "VZÄ";
+    elements.kpiMutterschutzSub.textContent = "VZ??";
     elements.kpiMutterschutzProgress.style.width = `${Math.min(100, (agg.mutterschutz || 0) * 12).toFixed(1)}%`;
 
     elements.kpiElternzeit.textContent = fmtNumber.format(agg.elternzeit || 0);
-    elements.kpiElternzeitSub.textContent = "VZÄ";
+    elements.kpiElternzeitSub.textContent = "VZ??";
     elements.kpiElternzeitProgress.style.width = `${Math.min(100, (agg.elternzeit || 0) * 12).toFixed(1)}%`;
 
     elements.kpiKol.textContent = fmtNumber.format(agg.kol || 0);
-    elements.kpiKolSub.textContent = "VZÄ";
+    elements.kpiKolSub.textContent = "VZ??";
     elements.kpiKolProgress.style.width = `${Math.min(100, (agg.kol || 0) * 12).toFixed(1)}%`;
   }
 
-  function renderQualSection(agg, data) {
+function renderQualSection(agg, data) {
     const list = Array.isArray(data && data.mandatory_quals) ? data.mandatory_quals : [];
     const findByCode = (code) => list.find((item) => String(item.code || "").toUpperCase() === code);
     const pfk = findByCode("PFK");
@@ -2541,6 +2550,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         shift_mix: payload.shift_mix || emptyData.shift_mix,
         mandatory_quals: Array.isArray(payload.mandatory_quals) ? payload.mandatory_quals : []
       };
+      safePayload.trend = (safePayload.trend || []).map((row) => ({
+        ...row,
+        staffed_hours: normalizeNumber(row.staffed_hours),
+        required_hours: normalizeNumber(row.required_hours),
+        occupancy_pct: normalizeNumber(row.occupancy_pct)
+      }));
+      if (elements.dataNote) {
+        const istSum = safePayload.stations.reduce(
+          (acc, row) => acc + normalizeNumber(row.ist_vza ?? row.vk_ist ?? row.beds_occupied ?? 0),
+          0
+        );
+        const sourceLabel = safePayload.meta && safePayload.meta.source ? safePayload.meta.source : 'd1';
+        elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZ??`;
+      }
       applyData(safePayload);
     } catch (err) {
       applyData(emptyData);
