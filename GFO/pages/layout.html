@@ -786,12 +786,16 @@
 
         const needsTenantRedirect = !pathTenantKey && activeTenant;
         if (needsTenantRedirect) {
-          const slug = buildTenantSlug(activeTenant.code || activeTenant.name);
-          if (slug) {
-            const target = `/${slug}/pages/start.html`;
-            if (!window.location.pathname.startsWith(target)) {
-              window.location.replace(target);
-              return;
+          // Avoid redirect loops when running under /pages/* (no tenant prefix in URL)
+          const skipRedirect = window.location.pathname.startsWith("/pages/");
+          if (!skipRedirect) {
+            const slug = buildTenantSlug(activeTenant.code || activeTenant.name);
+            if (slug) {
+              const target = `/${slug}/pages/start.html`;
+              if (!window.location.pathname.startsWith(target)) {
+                window.location.replace(target);
+                return;
+              }
             }
           }
         }
