@@ -786,6 +786,10 @@ async function handleGetInsights(request, env) {
       ...(tenantId ? [tenantId] : [])
     )
     .all();
+  const stationRowsList = stationRows.results || [];
+  const hasSollData = stationRowsList.some((row) => normalizeNumber(row.vk_soll) > 0);
+  const hasIstData = stationRowsList.some((row) => normalizeNumber(row.vk_ist) > 0);
+  const hasStationData = hasSollData || hasIstData;
 
   const qualRows = await db.prepare("SELECT id, code, label FROM qualifications WHERE is_active=1").all();
   const qualMap = new Map();
@@ -867,7 +871,7 @@ async function handleGetInsights(request, env) {
     if (code === "KOL") agg.kol += normalizeNumber(row.total);
   }
 
-    let stations = (stationRows.results || []).map((row) => {
+    let stations = (hasStationData ? stationRowsList : []).map((row) => {
       const vkSoll = normalizeNumber(row.vk_soll);
       const vkIst = normalizeNumber(row.vk_ist);
       const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
@@ -915,18 +919,6 @@ async function handleGetInsights(request, env) {
       };
     });
 
-    const mandatoryQuals = Array.from(mandatoryTotals.values()).map((item) => {
-      const totalSoll = item.soll;
-      const coverage = totalSoll ? (item.ist / totalSoll) * 100 : 0;
-      return {
-        code: item.code,
-        label: item.label,
-        soll_vza: item.soll,
-        ist_vza: item.ist,
-        coverage_pct: coverage
-      };
-    });
-
     // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
     if (!stations.length) {
       let empSql =
@@ -969,7 +961,7 @@ async function handleGetInsights(request, env) {
     }
 
     let actualTotals;
-    if (stationRows.results && stationRows.results.length) {
+    if (hasIstData) {
       actualTotals = await db
         .prepare(
           "SELECT month, SUM(vk_ist) AS total FROM staffing_actuals WHERE year=? " +
@@ -997,14 +989,17 @@ async function handleGetInsights(request, env) {
       actualTotals = await db.prepare(empTotalSql).bind(...empTotalParams).all();
     }
 
-  let planTotals = await db
-    .prepare(
-      "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
-        (tenantId ? "AND tenant_id=? " : "") +
-        "GROUP BY month"
-    )
-    .bind(...[year, ...(tenantId ? [tenantId] : [])])
-    .all();
+  let planTotals = null;
+  if (hasSollData) {
+    planTotals = await db
+      .prepare(
+        "SELECT month, SUM(vk_soll) AS total FROM station_capacity WHERE year=? " +
+          (tenantId ? "AND tenant_id=? " : "") +
+          "GROUP BY month"
+      )
+      .bind(...[year, ...(tenantId ? [tenantId] : [])])
+      .all();
+  }
   if (!planTotals || !(planTotals.results || []).length) {
     let planSql =
       "SELECT month, SUM(value) AS total FROM wirtschaftsplan_targets WHERE year=? AND scope='total'";
@@ -1020,6 +1015,53 @@ async function handleGetInsights(request, env) {
     planSql += " GROUP BY month";
     planTotals = await db.prepare(planSql).bind(...planParams).all();
   }
+
+  if (!hasStationData) {
+    let qualSql =
+      "SELECT e.qualification_id AS qualification_id, SUM(v.value) AS total " +
+      "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+      "WHERE v.year=? AND v.month=? AND e.category='main'";
+    const qualParams = [year, month];
+    if (tenantId) {
+      qualSql += " AND e.tenant_id=?";
+      qualParams.push(tenantId);
+    }
+    if (Number.isFinite(deptId)) {
+      qualSql += " AND e.department_id=?";
+      qualParams.push(deptId);
+    }
+    qualSql += " GROUP BY e.qualification_id";
+    const qualTotals = await db.prepare(qualSql).bind(...qualParams).all();
+    for (const row of qualTotals.results || []) {
+      const info = qualMap.get(row.qualification_id) || { code: "", label: "", key: "" };
+      const tokens = [
+        (info.code || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        (info.label || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        info.key || ""
+      ].filter(Boolean);
+      const mandatory = mandatoryDefs.find((def) => matchAny(tokens, def.patterns));
+      if (mandatory) {
+        const agg = mandatoryTotals.get(mandatory.code);
+        if (agg) {
+          const total = normalizeNumber(row.total);
+          agg.soll += total;
+          agg.ist += total;
+        }
+      }
+    }
+  }
+
+  const mandatoryQuals = Array.from(mandatoryTotals.values()).map((item) => {
+    const totalSoll = item.soll;
+    const coverage = totalSoll ? (item.ist / totalSoll) * 100 : 0;
+    return {
+      code: item.code,
+      label: item.label,
+      soll_vza: item.soll,
+      ist_vza: item.ist,
+      coverage_pct: coverage
+    };
+  });
 
   const trendMap = new Map();
   for (const row of planTotals.results || []) {
