@@ -969,15 +969,24 @@ async function bindControls() {
       try {
         await waitForTenant();
         cachedDepartments = await fetchDepartments();
-        if (cachedDepartments.length) {
-          stationSelect.innerHTML = cachedDepartments
-            .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
-            .join("");
-          const ctx = getContextIds();
-          const selected = ctx.departmentId || cachedDepartments[0].id;
-          stationSelect.value = String(selected);
-          state.departmentId = selected;
+      if (cachedDepartments.length) {
+        stationSelect.innerHTML = cachedDepartments
+          .map((d) => `<option value="${d.id}">${d.name || d.code}</option>`)
+          .join("");
+        const ctx = getContextIds();
+        const selected = ctx.departmentId || cachedDepartments[0].id;
+        stationSelect.value = String(selected);
+        state.departmentId = selected;
+        if (!ctx.departmentId) {
+          sessionStorage.setItem("department_id", String(selected));
+          document.body.dataset.departmentId = String(selected);
+          try {
+            await reload();
+          } catch (err) {
+            // ignore reload errors here
+          }
         }
+      }
       } catch (err) {
         // ignore
       }
