@@ -1923,6 +1923,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   // CLINICON-INSIGHTS-MERGE
   (() => {
 // SCRIPT-START
+  const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
   const demoData = {
     meta: {
       updated_at: "2026-01-05 09:30",
@@ -1992,7 +1993,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
   const fmtNumber = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
   const fmtInt = new Intl.NumberFormat("de-DE");
-  const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
     const monthLabelFromDate = (value, index) => {
       if (!value) return MONTHS_SHORT[index] || "";
       const raw = String(value);
