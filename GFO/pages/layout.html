@@ -609,12 +609,12 @@
   <script>
     (async () => {
       const apiBase = document.body.dataset.apiBase || "";
-      const controls = document.querySelector("[data-tenant-controls]");
-      const tenantSelect = document.getElementById("tenantSelect");
-      const departmentSelect = document.getElementById("departmentSelect");
-      const tenantLabel = document.getElementById("tenantLabel");
-      const tenantPill = document.getElementById("tenantPill");
-      const userEmailPill = document.getElementById("userEmailPill");
+        const controls = document.querySelector("[data-tenant-controls]");
+        const tenantSelect = document.getElementById("tenantSelect");
+        const departmentSelect = document.getElementById("departmentSelect");
+        const tenantLabel = document.getElementById("tenantLabel");
+        const tenantPill = document.getElementById("tenantPill");
+        const userEmailPill = document.getElementById("userEmailPill");
       const pathTenantInfo = (() => {
         const segments = window.location.pathname.split("/").filter(Boolean);
         if (!segments.length) return { key: "", raw: "" };
@@ -647,17 +647,19 @@
       }
 
         let role = "tenant";
+        let tenants = [];
+        let tenantData = null;
 
         const attachTenantControls = async () => {
-        const controlsNode = document.querySelector("[data-tenant-controls]");
-        const tenantSelectNode = document.getElementById("tenantSelect");
-        const departmentSelectNode = document.getElementById("departmentSelect");
-        if (!controlsNode || !tenantSelectNode || !departmentSelectNode) return false;
+          const controlsNode = document.querySelector("[data-tenant-controls]");
+          const tenantSelectNode = document.getElementById("tenantSelect");
+          const departmentSelectNode = document.getElementById("departmentSelect");
+          if (!controlsNode || !tenantSelectNode || !departmentSelectNode) return false;
           const showTenant = role === "admin" || role === "zpd";
 
-        tenantSelectNode.innerHTML = tenants
-          .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
-          .join("");
+          tenantSelectNode.innerHTML = tenants
+            .map((t) => `<option value="${t.id}">${t.name || t.code}</option>`)
+            .join("");
         if (resolvedTenantId) {
           tenantSelectNode.value = String(resolvedTenantId);
         }
@@ -747,7 +749,7 @@
         const cacheKey = "tenant_cache";
         const cacheTtl = 5 * 60 * 1000;
         const cachedRaw = sessionStorage.getItem(cacheKey);
-        let tenantData = null;
+        tenantData = null;
         if (cachedRaw) {
           try {
             const cached = JSON.parse(cachedRaw);
@@ -764,8 +766,8 @@
           tenantData = await tenantRes.json();
           sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: tenantData }));
         }
-          const tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
-          role = tenantData.role || "tenant";
+        tenants = Array.isArray(tenantData.tenants) ? tenantData.tenants : [];
+        role = tenantData.role || "tenant";
 
         const storedTenant = Number.parseInt(sessionStorage.getItem("tenant_id"), 10);
         const activeTenantId = Number.isFinite(storedTenant)
