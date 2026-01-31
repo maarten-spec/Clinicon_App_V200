@@ -649,12 +649,14 @@
         let role = "tenant";
         let tenants = [];
         let tenantData = null;
+        let resolvedTenantId = null;
 
         const attachTenantControls = async () => {
           const controlsNode = document.querySelector("[data-tenant-controls]");
           const tenantSelectNode = document.getElementById("tenantSelect");
           const departmentSelectNode = document.getElementById("departmentSelect");
           if (!controlsNode || !tenantSelectNode || !departmentSelectNode) return false;
+          if (!tenantData || !tenants.length) return false;
           const showTenant = role === "admin" || role === "zpd";
 
           tenantSelectNode.innerHTML = tenants
@@ -776,12 +778,12 @@
         const matchedPathTenant = pathTenantKey
           ? tenants.find((t) => normalizeTenantKey(t.code || t.name) === pathTenantKey)
           : null;
-        const resolvedTenantId = matchedPathTenant ? matchedPathTenant.id : activeTenantId;
+          resolvedTenantId = matchedPathTenant ? matchedPathTenant.id : activeTenantId;
 
-        if (resolvedTenantId) {
-          document.body.dataset.tenantId = String(resolvedTenantId);
-          sessionStorage.setItem("tenant_id", String(resolvedTenantId));
-        }
+          if (resolvedTenantId) {
+            document.body.dataset.tenantId = String(resolvedTenantId);
+            sessionStorage.setItem("tenant_id", String(resolvedTenantId));
+          }
         const activeTenant = tenants.find((t) => t.id === resolvedTenantId) || tenants[0];
         if (activeTenant && (activeTenant.name || activeTenant.code)) {
           setTenantPill(activeTenant.name || activeTenant.code);
