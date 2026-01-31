@@ -662,7 +662,7 @@
 
         const buildDeptUrl = (base) =>
           `${base}/api/departments?tenant=${resolvedTenantId || ""}`;
-        const deptRes = await fetch(buildDeptUrl(apiBase), { headers: tenantHeaders });
+        const deptRes = await fetch(buildDeptUrl(apiBase), { headers: tenantHeaders, credentials: "same-origin" });
         const deptData = deptRes.ok ? await deptRes.json() : { departments: [] };
         const departments = Array.isArray(deptData.departments) ? deptData.departments : [];
         const storedDept = Number.parseInt(sessionStorage.getItem("department_id"), 10);
@@ -757,7 +757,7 @@
           }
         }
         if (!tenantData) {
-          const tenantRes = await fetch(buildTenantUrl(apiBase), { headers: tenantHeaders });
+          const tenantRes = await fetch(buildTenantUrl(apiBase), { headers: tenantHeaders, credentials: "same-origin" });
           if (!tenantRes.ok) return;
           tenantData = await tenantRes.json();
           sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: tenantData }));
@@ -835,6 +835,7 @@
 </script>
 </body>
 </html>
+
 
 
 

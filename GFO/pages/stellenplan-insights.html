@@ -2521,7 +2521,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "same-origin" });
       if (!response.ok) {
         throw new Error("API error");
       }
@@ -2621,7 +2621,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "same-origin" });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }
@@ -2768,6 +2768,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   </script>
 </body>
 </html>
+
 
 
 

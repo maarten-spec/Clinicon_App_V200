@@ -131,6 +131,7 @@ async function fetchJson(url, options = {}) {
   const headers = { "content-type": "application/json" };
   const response = await fetch(`${getApiBase()}${url}`, {
     headers,
+    credentials: "same-origin",
     ...options
   });
   if (!response.ok) {
