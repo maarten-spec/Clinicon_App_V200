@@ -847,6 +847,35 @@ async function handleGetInsights(request, env) {
     if (keyCode) deptNameMap.set(keyCode, row.id);
   }
 
+  let empTotalsRows = null;
+  const empTotalsByDept = new Map();
+  {
+    let empSql =
+      "SELECT e.department_id AS dept_id, " +
+      "COALESCE(d.name, d.code, e.extra_category, 'Station') AS dept_label, " +
+      "SUM(v.value) AS total " +
+      "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
+      "LEFT JOIN departments d ON d.id=e.department_id " +
+      "WHERE v.year=? AND v.month=? AND e.category='main'";
+    const empParams = [year, month];
+    if (tenantId) {
+      empSql += " AND e.tenant_id=?";
+      empParams.push(tenantId);
+    }
+    if (Number.isFinite(deptId)) {
+      empSql += " AND e.department_id=?";
+      empParams.push(deptId);
+    }
+    empSql += " GROUP BY e.department_id, dept_label ORDER BY dept_label";
+    empTotalsRows = await db.prepare(empSql).bind(...empParams).all();
+    for (const row of empTotalsRows.results || []) {
+      const key = normalizeKey(row.dept_label || "");
+      if (key) {
+        empTotalsByDept.set(key, normalizeNumber(row.total));
+      }
+    }
+  }
+
   const absenceRows = await db
     .prepare(
       "SELECT department_id, code, SUM(value) AS total " +
@@ -873,7 +902,12 @@ async function handleGetInsights(request, env) {
 
     let stations = (hasStationData ? stationRowsList : []).map((row) => {
       const vkSoll = normalizeNumber(row.vk_soll);
-      const vkIst = normalizeNumber(row.vk_ist);
+      let vkIst = normalizeNumber(row.vk_ist);
+      const stationKey = normalizeKey(row.name || row.code || "");
+      const empIst = empTotalsByDept.get(stationKey);
+      if (vkIst === 0 && empIst) {
+        vkIst = empIst;
+      }
       const occupancy = vkSoll ? (vkIst / vkSoll) * 100 : 0;
       const mix = mixMap.get(row.id);
       const mixInfo = mix ? qualMap.get(mix.qualification_id) : null;
@@ -899,7 +933,6 @@ async function handleGetInsights(request, env) {
       }
       const qualCoverage = vkSoll ? (mandatorySum / vkSoll) * 100 : 0;
       const fulfillment = vkSoll ? (vkIst / vkSoll) * 100 : 0;
-      const stationKey = normalizeKey(row.name || row.code || "");
       const deptId = deptNameMap.get(stationKey) || null;
       const abs = absenceByDept.get(deptId) || { ms: 0, ez: 0, kol: 0 };
       return {
@@ -921,25 +954,7 @@ async function handleGetInsights(request, env) {
 
     // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
     if (!stations.length) {
-      let empSql =
-        "SELECT e.department_id AS dept_id, " +
-        "COALESCE(d.name, d.code, e.extra_category, 'Station') AS dept_label, " +
-        "SUM(v.value) AS total " +
-        "FROM employee_month_values v JOIN employees e ON e.id=v.employee_id " +
-        "LEFT JOIN departments d ON d.id=e.department_id " +
-        "WHERE v.year=? AND v.month=? AND e.category='main'";
-      const empParams = [year, month];
-      if (tenantId) {
-        empSql += " AND e.tenant_id=?";
-        empParams.push(tenantId);
-      }
-      if (Number.isFinite(deptId)) {
-        empSql += " AND e.department_id=?";
-        empParams.push(deptId);
-      }
-      empSql += " GROUP BY e.department_id, dept_label ORDER BY dept_label";
-      const empRows = await db.prepare(empSql).bind(...empParams).all();
-      for (const row of empRows.results || []) {
+      for (const row of (empTotalsRows?.results || [])) {
         const label = normalizeText(row.dept_label || "Station");
         const vkIst = normalizeNumber(row.total);
         stations.push({
