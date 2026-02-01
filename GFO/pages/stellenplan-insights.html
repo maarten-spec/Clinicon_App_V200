@@ -514,6 +514,36 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     background:#fff;
     font-family:var(--font-base);
   }
+  .insights-tab .filter-bar{
+    padding:16px 18px;
+  }
+  .insights-tab .filter-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .insights-tab .filter-row label{
+    font-size:.9rem;
+    font-weight:600;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .insights-tab .filter-row select{
+    padding:8px 12px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    font-family:var(--font-base);
+    min-width:220px;
+  }
+  .insights-tab .filter-note{
+    font-size:.82rem;
+    color:var(--muted);
+  }
   .insights-tab .kpi-card{
     background:var(--surface);
     border-radius:var(--radius-md);
@@ -721,8 +751,9 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     .insights-tab{padding:20px}
     .insights-tab .kpi-grid{grid-template-columns:1fr}
   }
-@media (max-width: 900px){
+  @media (max-width: 900px){
 }
+  #dataRange{display:none !important;}
   </style>
 </head>
 <body>
@@ -752,65 +783,17 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
           </div>
         </section>
 
-        <div class="timeslicer-shell" data-tabs="insights dashboard charts ziel qual parameter">
-          <div class="app-timeslicer timeslicer-modern" data-timeslicer>
-            <div class="timeslicer-card">
-              <div class="timeslicer-head">
-                <div>
-                  <div class="timeslicer-title">Zeitfenster</div>
-                  <div class="timeslicer-sub">Filtert Kennzahlen und Reportings.</div>
-                </div>
-                <span class="timeslicer-pill" data-range-label>7 Tage</span>
-              </div>
-              <div class="timeslicer-controls">
-                <div class="timeslicer-buttons">
-                  <button class="timeslicer-btn active" type="button" data-range="7d" data-label="7 Tage">7 Tage</button>
-                  <button class="timeslicer-btn" type="button" data-range="30d" data-label="30 Tage">30 Tage</button>
-                  <button class="timeslicer-btn" type="button" data-range="quarter" data-label="Quartal">Quartal</button>
-                  <button class="timeslicer-btn" type="button" data-range="year" data-label="Jahr">Jahr</button>
-                </div>
-                <div class="tenant-controls hidden" data-tenant-controls>
-                  <span class="tenant-label">Mandant</span>
-                  <select id="tenantSelect" class="tenant-select"></select>
-                  <span id="tenantLabel" class="tenant-value" style="display:none;"></span>
-                  <span class="tenant-label">Abteilung</span>
-                  <select id="departmentSelect" class="tenant-select"></select>
-                </div>
-                <div class="timeslicer-dept">
-                  <label for="insightsDeptSelect">Station</label>
-                  <select id="insightsDeptSelect">
-                    <option value="">Gesamtes Haus</option>
-                  </select>
-                </div>
-                <div class="timeslicer-custom">
-                  <label>Von <input type="date" data-range-start /></label>
-                  <span class="timeslicer-divider">-</span>
-                  <label>Bis <input type="date" data-range-end /></label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="insights-tab" data-tabs="insights">
-          <section class="card head-card">
-            <div class="head-meta">
-              <div class="meta-item">
-                <span>Verbund</span>
-                <strong id="insightsVerbund">--</strong>
-              </div>
-              <div class="meta-item">
-                <span>Mandant</span>
-                <strong id="insightsMandant">--</strong>
-              </div>
-              <div class="meta-item">
-                <span>Filter</span>
-                <strong id="insightsFilterLabel">Gesamtes Haus</strong>
-              </div>
+          <section class="card filter-bar">
+            <div class="filter-row">
+              <label>Station / Abteilung
+                <select id="insightsDeptSelect">
+                  <option value="">Gesamtes Haus</option>
+                </select>
+              </label>
+              <span class="filter-note">Filter wirkt auf KPIs, Tabellen und Grafiken.</span>
             </div>
-            <div class="card-sub">Filter wirken konsistent auf alle KPIs und Tabellen.</div>
           </section>
-
           <section class="kpi-grid kpi-quickcheck">
             <div class="kpi-card kpi-tone-teal">
               <h4>Stellenplan-Erfüllungsgrad</h4>
@@ -920,6 +903,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               <div class="card-header">
                 <h3>Monatsverlauf (VK IST / SOLL)</h3>
                 <span class="card-sub" id="trendSource">Quelle: Demo</span>
+                <span class="card-sub" id="lastUpdated">Stand: --</span>
               </div>
               <div class="chart-wrap">
                 <canvas id="trendChart"></canvas>
@@ -1970,7 +1954,9 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       date: `${y}-${String(idx + 1).padStart(2, "0")}-01`,
       occupancy_pct: 0,
       staffed_hours: 0,
-      required_hours: 0
+      required_hours: 0,
+      wirtschaftsplan_hours: 0,
+      sollwert_hours: 0
     }));
   };
 
@@ -1990,7 +1976,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     ]
   };
 
-  const fmtNumber = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+  const fmtNumber = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtInt = new Intl.NumberFormat("de-DE");
     const monthLabelFromDate = (value, index) => {
       if (!value) return MONTHS_SHORT[index] || "";
@@ -2117,11 +2103,11 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const totalSoll = normalizeNumber(agg.soll);
     if (totalSoll > 0) {
       elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
-      elements.kpiFulfillmentSub.textContent = `${fmtNumber.format(totalIst)} / ${fmtNumber.format(totalSoll)} VZ??`;
+      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
       elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
     } else {
-      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZ??`;
-      elements.kpiFulfillmentSub.textContent = "IST gesamt (kein SOLL hinterlegt)";
+      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZÄ`;
+      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
       elements.kpiFulfillmentProgress.style.width = `${Math.min(100, totalIst * 12).toFixed(1)}%`;
     }
 
@@ -2134,20 +2120,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const pfaIst = pfa ? normalizeNumber(pfa.ist_vza) : 0;
     const mfaIst = mfa ? normalizeNumber(mfa.ist_vza) : 0;
     const qualSum = pfkIst + pfaIst + mfaIst;
-    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZ??` : "--";
+    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZÄ` : "--";
     elements.kpiQualCoverageSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
     elements.kpiQualCoverageProgress.style.width = `${Math.min(100, qualSum * 12).toFixed(1)}%`;
 
     elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
-    elements.kpiMutterschutzSub.textContent = "VZ??";
+    elements.kpiMutterschutzSub.textContent = "VZÄ";
     elements.kpiMutterschutzProgress.style.width = `${Math.min(100, (agg.mutterschutz || 0) * 12).toFixed(1)}%`;
 
     elements.kpiElternzeit.textContent = fmtNumber.format(agg.elternzeit || 0);
-    elements.kpiElternzeitSub.textContent = "VZ??";
+    elements.kpiElternzeitSub.textContent = "VZÄ";
     elements.kpiElternzeitProgress.style.width = `${Math.min(100, (agg.elternzeit || 0) * 12).toFixed(1)}%`;
 
     elements.kpiKol.textContent = fmtNumber.format(agg.kol || 0);
-    elements.kpiKolSub.textContent = "VZ??";
+    elements.kpiKolSub.textContent = "VZÄ";
     elements.kpiKolProgress.style.width = `${Math.min(100, (agg.kol || 0) * 12).toFixed(1)}%`;
   }
 
@@ -2287,15 +2273,27 @@ function renderQualSection(agg, data) {
               borderColor: chartColors.accent,
               backgroundColor: "rgba(28,107,255,0.1)",
               tension: 0.3,
-              fill: true,
-              yAxisID: "y"
+              fill: true
             },
             {
               label: "VK Gesamt Haus SOLL",
               data: data.trend.map((row) => row.required_hours),
               borderColor: chartColors.accent3,
-              tension: 0.3,
-              yAxisID: "y1"
+              tension: 0.3
+            },
+            {
+              label: "Wirtschaftsplan",
+              data: data.trend.map((row) => row.wirtschaftsplan_hours || 0),
+              borderColor: chartColors.accent4,
+              borderDash: [6, 4],
+              tension: 0.3
+            },
+            {
+              label: "SOLL-Berechnung",
+              data: data.trend.map((row) => row.sollwert_hours || 0),
+              borderColor: chartColors.danger,
+              borderDash: [2, 4],
+              tension: 0.3
             }
           ]
         },
@@ -2307,8 +2305,7 @@ function renderQualSection(agg, data) {
           },
           scales: {
             x: { ticks: { autoSkip: false } },
-            y: { beginAtZero: true },
-            y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false } }
+            y: { beginAtZero: true }
           }
         }
       });
@@ -2354,7 +2351,14 @@ function renderQualSection(agg, data) {
     const statusCtx = document.getElementById("statusChart");
     if (statusCtx) {
       const statusCounts = buildMixCounts(data.stations);
-      const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      let topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      if (!topMix.length) {
+        const mandatoryList = Array.isArray(data.mandatory_quals) ? data.mandatory_quals : [];
+        topMix = mandatoryList
+          .map((item) => [item.label || item.code || "Qualifikation", normalizeNumber(item.ist_vza)])
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+      }
       charts.status = new Chart(statusCtx, {
         type: "doughnut",
         data: {
@@ -2392,6 +2396,16 @@ function renderQualSection(agg, data) {
               label: "VK SOLL",
               data: data.trend.map((row) => row.required_hours),
               backgroundColor: chartColors.accent3
+            },
+            {
+              label: "Wirtschaftsplan",
+              data: data.trend.map((row) => row.wirtschaftsplan_hours || 0),
+              backgroundColor: chartColors.accent4
+            },
+            {
+              label: "SOLL-Berechnung",
+              data: data.trend.map((row) => row.sollwert_hours || 0),
+              backgroundColor: chartColors.danger
             }
           ]
         },
@@ -2460,6 +2474,12 @@ function renderQualSection(agg, data) {
         charts.trend.data.labels = data.trend.map((row, idx) => monthLabelFromDate(row.date, idx));
         charts.trend.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
         charts.trend.data.datasets[1].data = data.trend.map((row) => row.required_hours);
+        if (charts.trend.data.datasets[2]) {
+          charts.trend.data.datasets[2].data = data.trend.map((row) => row.wirtschaftsplan_hours || 0);
+        }
+        if (charts.trend.data.datasets[3]) {
+          charts.trend.data.datasets[3].data = data.trend.map((row) => row.sollwert_hours || 0);
+        }
         charts.trend.update();
       }
 
@@ -2471,7 +2491,14 @@ function renderQualSection(agg, data) {
 
       if (charts.status) {
         const statusCounts = buildMixCounts(data.stations);
-        const topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        let topMix = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        if (!topMix.length) {
+          const mandatoryList = Array.isArray(data.mandatory_quals) ? data.mandatory_quals : [];
+          topMix = mandatoryList
+            .map((item) => [item.label || item.code || "Qualifikation", normalizeNumber(item.ist_vza)])
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3);
+        }
         charts.status.data.labels = topMix.map(([label]) => label);
         charts.status.data.datasets[0].data = topMix.map(([, value]) => value);
         charts.status.update();
@@ -2481,6 +2508,12 @@ function renderQualSection(agg, data) {
         charts.monthBars.data.labels = data.trend.map((row, idx) => monthLabelFromDate(row.date, idx));
         charts.monthBars.data.datasets[0].data = data.trend.map((row) => row.staffed_hours);
         charts.monthBars.data.datasets[1].data = data.trend.map((row) => row.required_hours);
+        if (charts.monthBars.data.datasets[2]) {
+          charts.monthBars.data.datasets[2].data = data.trend.map((row) => row.wirtschaftsplan_hours || 0);
+        }
+        if (charts.monthBars.data.datasets[3]) {
+          charts.monthBars.data.datasets[3].data = data.trend.map((row) => row.sollwert_hours || 0);
+        }
         charts.monthBars.update();
       }
 
@@ -2516,6 +2549,11 @@ function renderQualSection(agg, data) {
         const source = data.meta && data.meta.source ? data.meta.source : "demo";
         const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
         elements.dataNote.textContent = `Datenquelle: ${source}. Zuletzt aktualisiert: ${updated}`;
+      }
+      const lastUpdated = document.getElementById("lastUpdated");
+      if (lastUpdated) {
+        const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "";
+        lastUpdated.textContent = updated ? `Stand: ${updated}` : "Stand: --";
       }
       const trendSource = document.getElementById("trendSource");
       if (trendSource) {
@@ -2566,7 +2604,9 @@ function renderQualSection(agg, data) {
         ...row,
         staffed_hours: normalizeNumber(row.staffed_hours),
         required_hours: normalizeNumber(row.required_hours),
-        occupancy_pct: normalizeNumber(row.occupancy_pct)
+        occupancy_pct: normalizeNumber(row.occupancy_pct),
+        wirtschaftsplan_hours: normalizeNumber(row.wirtschaftsplan_hours),
+        sollwert_hours: normalizeNumber(row.sollwert_hours)
       }));
       if (elements.dataNote) {
         const istSum = safePayload.stations.reduce(
@@ -2574,7 +2614,7 @@ function renderQualSection(agg, data) {
           0
         );
         const sourceLabel = safePayload.meta && safePayload.meta.source ? safePayload.meta.source : 'd1';
-        elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZ??`;
+        elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZÄ`;
       }
       applyData(safePayload);
     } catch (err) {
@@ -2605,9 +2645,6 @@ function renderQualSection(agg, data) {
   (() => {
     const rangeLabel = document.querySelector('[data-range-label]');
     const headerRange = document.getElementById('dataRange');
-    const rangeButtons = Array.from(document.querySelectorAll('.timeslicer-btn'));
-    const startInput = document.querySelector('[data-range-start]');
-    const endInput = document.querySelector('[data-range-end]');
     const deptSelect = document.getElementById('insightsDeptSelect');
 
     const formatDate = (value) => {
@@ -2621,25 +2658,6 @@ function renderQualSection(agg, data) {
       if (rangeLabel) rangeLabel.textContent = label;
       if (headerRange) headerRange.textContent = `Zeitraum: ${label}`;
     };
-
-    if (rangeButtons.length) {
-      rangeButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-          rangeButtons.forEach((item) => item.classList.toggle('active', item === btn));
-          const label = btn.dataset.label || btn.textContent.trim();
-          setRangeLabel(label);
-        });
-      });
-    }
-
-    const applyCustomRange = () => {
-      if (startInput && endInput && startInput.value && endInput.value) {
-        rangeButtons.forEach((item) => item.classList.remove('active'));
-        setRangeLabel(`${formatDate(startInput.value)} - ${formatDate(endInput.value)}`);
-      }
-    };
-    if (startInput) startInput.addEventListener('change', applyCustomRange);
-    if (endInput) endInput.addEventListener('change', applyCustomRange);
 
     let deptTries = 0;
     const populateDepartments = async () => {

@@ -758,6 +758,7 @@ async function handleGetInsights(request, env) {
     return unauthorized();
   }
   const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  const scopeKey = buildScopeKey(tenantId, deptId);
   const month = await resolveInsightsMonth(db, year, monthParam);
 
     const stationRows = await db
@@ -1058,6 +1059,18 @@ async function handleGetInsights(request, env) {
     planTotals = await db.prepare(planSql).bind(...planParams).all();
   }
 
+  const wpTotals = await db
+    .prepare("SELECT month, value FROM wirtschaftsplan_targets WHERE year=? AND scope=?")
+    .bind(year, scopeKey)
+    .all();
+  const wpMap = new Map((wpTotals.results || []).map((row) => [row.month, normalizeNumber(row.value)]));
+
+  const sollwertRow = await db
+    .prepare("SELECT value FROM sollwert_values WHERE year=? AND scope=?")
+    .bind(year, scopeKey)
+    .first();
+  const sollwertValue = normalizeNumber(sollwertRow ? sollwertRow.value : 0);
+
   if (useEmpTotals || !hasStationData) {
     let qualSql =
       "SELECT e.qualification_id AS qualification_id, SUM(v.value) AS total " +
@@ -1130,7 +1143,9 @@ async function handleGetInsights(request, env) {
       date: buildDateString(year, entry.month),
       occupancy_pct: entry.vk_soll ? (entry.vk_ist / entry.vk_soll) * 100 : 0,
       staffed_hours: entry.vk_ist,
-      required_hours: entry.vk_soll
+      required_hours: entry.vk_soll,
+      wirtschaftsplan_hours: wpMap.get(entry.month) || 0,
+      sollwert_hours: sollwertValue
     }));
 
   const response = {
