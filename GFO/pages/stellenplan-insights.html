@@ -983,6 +983,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               </table>
             </div>
             <p class="data-note" id="dataNote">Datenquelle: Demo-Datensatz.</p>
+            <div id="insightsDebug" class="data-note" style="margin-top:6px; white-space:pre-wrap;"></div>
           </section>
         </div>
       <div data-tabs="dashboard">
@@ -1996,6 +1997,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     dataRange: document.getElementById("dataRange"),
     rangeLabel: document.querySelector("[data-range-label]"),
     dataNote: document.getElementById("dataNote"),
+    insightsDebug: document.getElementById("insightsDebug"),
     insightsVerbund: document.getElementById("insightsVerbund"),
     insightsMandant: document.getElementById("insightsMandant"),
     insightsFilterLabel: document.getElementById("insightsFilterLabel"),
@@ -2608,6 +2610,7 @@ function renderQualSection(agg, data) {
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
+      if (elements.insightsDebug) { elements.insightsDebug.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
         let response = await fetch(endpoint, { headers, credentials: "include", cache: "no-store" });
@@ -2615,17 +2618,25 @@ function renderQualSection(agg, data) {
         const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
         const fallbackHeaders = { Accept: "application/json" };
         if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
+        if (elements.insightsDebug) { elements.insightsDebug.textContent += "
+Fallback: worker"; }
         response = await fetch(
           "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
             (params.toString() ? `?${params.toString()}` : ""),
           { headers: fallbackHeaders, cache: "no-store" }
         );
+        if (elements.insightsDebug) { elements.insightsDebug.textContent += `
+Status: ${response.status}`; }
         if (!response.ok) {
           throw new Error(`API error ${response.status}`);
         }
       }
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
+        const raw = await response.text();
+        if (elements.insightsDebug) { elements.insightsDebug.textContent += `
+Non-JSON: ${contentType}
+${raw.slice(0,400)}`; }
         throw new Error(`Non-JSON response: ${contentType}`);
       }
       const payload = await response.json();
@@ -2661,6 +2672,10 @@ function renderQualSection(agg, data) {
       applyData(emptyData);
       if (elements.dataNote) {
         elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
+      }
+      if (elements.insightsDebug) {
+        elements.insightsDebug.textContent += `
+Fehler: ${err && err.message ? err.message : err}`;
       }
     }
   }
