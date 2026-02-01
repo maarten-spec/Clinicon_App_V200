@@ -2614,9 +2614,22 @@ function renderQualSection(agg, data) {
     sessionStorage.setItem("insights_year", yearSelect.value);
   };
 
+  const getEmailFromPill = () => {
+    const pill = document.getElementById("userEmailPill");
+    if (!pill) return "";
+    const text = (pill.textContent || "").trim();
+    const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    return match ? match[0] : "";
+  };
+
   const ensureAccessEmail = async () => {
     const cached = (sessionStorage.getItem("user_email") || "").trim();
     if (cached) return cached;
+    const pillEmail = getEmailFromPill();
+    if (pillEmail) {
+      sessionStorage.setItem("user_email", pillEmail);
+      return pillEmail;
+    }
     try {
       const res = await fetch("/cdn-cgi/access/get-identity", { credentials: "same-origin" });
       if (!res.ok) return "";
@@ -2653,7 +2666,8 @@ function renderQualSection(agg, data) {
       const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       { const banner = ensureDebugBanner(); banner.textContent = `Request: ${endpoint}`; }
       try {
-        const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim();
+        const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
+        if (emailHeader) sessionStorage.setItem("user_email", emailHeader);
         const headers = { Accept: "application/json" };
         if (emailHeader) headers["x-user-email"] = emailHeader;
         const response = await fetch(endpoint, { headers, credentials: "omit", cache: "no-store" });
@@ -2850,7 +2864,8 @@ Fehler: ${err && err.message ? err.message : err}`; }
       try {
         const deptCreds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
       const deptHeaders = { Accept: "application/json" };
-      const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim();
+      const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
+      if (deptEmail) sessionStorage.setItem("user_email", deptEmail);
       if (deptEmail) deptHeaders["x-user-email"] = deptEmail;
       const response = await fetch(endpoint, { headers: deptHeaders, credentials: deptCreds });
         if (!response.ok) {
