@@ -587,7 +587,7 @@
       <header>
         <div class="topbar-left">
           <h1>Stellenplan Insights</h1>
-          <p>Farbiges KPI-Dashboard mit Demo-Daten fuer erste Tests.</p>
+          <p>Farbiges KPI-Dashboard mit produktiven Daten.</p>
         </div>
         <div class="topbar-actions app-actions" data-app-actions>
           <span class="pill app-pill" id="tenantPill" style="display:none;"></span>
@@ -634,7 +634,7 @@
       };
       const setTenantPill = (label) => {
         if (!tenantPill) return;
-        const clean = label ? formatTenantDisplay(label) : "Demo";
+        const clean = label ? formatTenantDisplay(label) : "-";
         tenantPill.textContent = `Mandant: ${clean}`;
         tenantPill.style.display = "inline-flex";
       };

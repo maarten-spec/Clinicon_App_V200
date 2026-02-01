@@ -58,7 +58,7 @@ textarea{min-height:110px;resize:vertical;}
           <input id="apiUrl" placeholder="z.B. https://app.clinicon.de" />
         </label>
         <span class="hint" style="flex:1; min-width:220px;">
-          <b>Hinweis:</b> Ohne Backend ist nur Demo moeglich. Sobald dein Endpoint bereitsteht, schreibt der Assistent Aenderungen erst nach deiner Bestaetigung ein.
+          <b>Hinweis:</b> Ohne Backend ist keine Verarbeitung moeglich. Sobald dein Endpoint bereitsteht, schreibt der Assistent Aenderungen erst nach deiner Bestaetigung ein.
         </span>
       </div>
 
@@ -79,15 +79,7 @@ textarea{min-height:110px;resize:vertical;}
       const DEFAULT_API_BASE = window.location.origin;
       const TIMEOUT_MS = 12000;
       const STORAGE_KEY = "clinicon_assistant_ctx_v1";
-      const FALLBACK_ORG_UNITS = [
-        { code: "STA1", name: "Station 1" },
-        { code: "STA2", name: "Station 2" },
-        { code: "STA3", name: "Station 3" },
-        { code: "STA4", name: "Station 4" },
-        { code: "STA5", name: "Station 5" },
-        { code: "OPS", name: "OP / Endoskopie" },
-        { code: "PDL", name: "Pflegedienstleitung" },
-      ];
+      const FALLBACK_ORG_UNITS = [];
       const context = {
         dept: "",
         dienstart: "01",
@@ -130,9 +122,9 @@ textarea{min-height:110px;resize:vertical;}
           const r = await fetch("/api/org-units", { credentials: "same-origin" });
           if (!r.ok) throw new Error("org-units fehlgeschlagen");
           const data = await r.json();
-          return Array.isArray(data) && data.length ? data : FALLBACK_ORG_UNITS;
+          return Array.isArray(data) ? data : [];
         } catch (_) {
-          return FALLBACK_ORG_UNITS;
+          return [];
         }
       }
       async function initContextDefaults() {
@@ -187,7 +179,7 @@ textarea{min-height:110px;resize:vertical;}
           try {
             const apiBase = (els.apiUrl.value || DEFAULT_API_BASE || "").trim();
             if (!apiBase) {
-              appendBubble("Demo-Modus: Ich kann nichts speichern. Hinterlege eine API-URL und implementiere /assistant/commit.", "sys");
+              appendBubble("Modus: Ich kann nichts speichern. Hinterlege eine API-URL und implementiere /assistant/commit.", "sys");
               return;
             }
             const res = await callApi(`${apiBase.replace(/\/$/, "")}/assistant/commit`, {
@@ -250,28 +242,13 @@ textarea{min-height:110px;resize:vertical;}
         els.status.textContent = isBusy ? "arbeitet..." : "";
       }
 
-      function demoAnswer({ dept, site, message }) {
-        const lower = message.toLowerCase();
-        if (lower.includes("verschieb") || lower.includes("tausch") || lower.includes("reduzier") || lower.includes("erhoeh")) {
-          return {
-            type: "proposal",
-            proposal: {
-              commit_token: "demo-token",
-              summary:
-                `Ich habe einen Aenderungsvorschlag erkannt.\n\n` +
-                `• Fachabteilung: ${dept}\n` +
-                `• Standort: ${site}\n` +
-                `• Auftrag: ${message}\n\n` +
-                `Naechster Schritt: Ich wuerde die betroffenen Datensaetze in R1/R2 identifizieren und eine Aenderung vorbereiten.\n` +
-                `Zum Speichern brauchst du ein Backend (API).`
-            }
-          };
+                };
         }
 
         return {
           type: "message",
           message:
-            `(Demo) Anfrage verstanden:\n` +
+            ` Anfrage verstanden:\n` +
             `• Fachabteilung: ${dept}\n` +
             `• Standort: ${site}\n` +
             `• Inhalt: ${message}\n\n` +
@@ -317,11 +294,9 @@ textarea{min-height:110px;resize:vertical;}
             return;
           }
 
-          const demo = demoAnswer({ dept: deptLabel, site: siteLabel, message: msg });
+          appendBubble("Backend nicht konfiguriert.", "sys"); return;
           typing.remove();
-          if (demo.type === "proposal") appendProposalCard(demo.proposal);
-          else appendBubble(demo.message, "bot");
-
+          
         } catch (err) {
           typing.remove();
           appendBubble(`Fehler: ${err.message}`, "sys");

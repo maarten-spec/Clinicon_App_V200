@@ -754,8 +754,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   @media (max-width: 900px){
 }
   #dataRange{display:none !important;}
-  #insightsDebugBanner{position:fixed;top:14px;right:14px;z-index:99999;max-width:360px;padding:10px 12px;border-radius:12px;background:#111827;color:#f9fafb;font-size:12px;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,0.25);white-space:pre-wrap;}
-  #insightsDebugBanner.hidden{display:none;}
   </style>
 </head>
 <body>
@@ -910,7 +908,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
             <div class="card">
               <div class="card-header">
                 <h3>Monatsverlauf (VK IST / SOLL)</h3>
-                <span class="card-sub" id="trendSource">Quelle: Demo</span>
+                <span class="card-sub" id="trendSource">Quelle: d1</span>
                 <span class="card-sub" id="lastUpdated">Stand: --</span>
               </div>
               <div class="chart-wrap">
@@ -985,7 +983,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                 <tbody id="stationsTable"></tbody>
               </table>
             </div>
-            <p class="data-note" id="dataNote">Datenquelle: Demo-Datensatz.</p>
+            <p class="data-note" id="dataNote">Datenquelle: d1</p>
           </section>
         </div>
       <div data-tabs="dashboard">
@@ -1915,46 +1913,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   (() => {
 // SCRIPT-START
   const MONTHS_SHORT = ["Jan","Feb","Mrz","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
-  const demoData = {
-    meta: {
-      updated_at: "2026-01-05 09:30",
-      range_label: "01.01.2026 - 05.01.2026",
-      source: "demo"
-    },
-    trend: [
-      { date: "2026-01-01", occupancy_pct: 78, staffed_hours: 320, required_hours: 340 },
-      { date: "2026-02-01", occupancy_pct: 81, staffed_hours: 330, required_hours: 342 },
-      { date: "2026-03-01", occupancy_pct: 84, staffed_hours: 315, required_hours: 340 },
-      { date: "2026-04-01", occupancy_pct: 83, staffed_hours: 326, required_hours: 339 },
-      { date: "2026-05-01", occupancy_pct: 87, staffed_hours: 336, required_hours: 340 },
-      { date: "2026-06-01", occupancy_pct: 86, staffed_hours: 332, required_hours: 338 },
-      { date: "2026-07-01", occupancy_pct: 82, staffed_hours: 325, required_hours: 336 },
-      { date: "2026-08-01", occupancy_pct: 80, staffed_hours: 320, required_hours: 335 },
-      { date: "2026-09-01", occupancy_pct: 83, staffed_hours: 328, required_hours: 337 },
-      { date: "2026-10-01", occupancy_pct: 85, staffed_hours: 334, required_hours: 339 },
-      { date: "2026-11-01", occupancy_pct: 86, staffed_hours: 336, required_hours: 340 },
-      { date: "2026-12-01", occupancy_pct: 88, staffed_hours: 340, required_hours: 342 }
-    ],
-      stations: [
-        { station: "Station 1", beds_planned: 20, beds_occupied: 16, occupancy_pct: 80.0, qual_mix_label: "Pflegefachkraft", variance_hours: -6.0 },
-        { station: "Station 2", beds_planned: 18, beds_occupied: 15, occupancy_pct: 83.3, qual_mix_label: "Pflegefachassistenz", variance_hours: -3.5 },
-        { station: "Station 3", beds_planned: 22, beds_occupied: 19, occupancy_pct: 86.4, qual_mix_label: "Pflegefachkraft", variance_hours: 1.0 },
-        { station: "Station 4", beds_planned: 16, beds_occupied: 12, occupancy_pct: 75.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -4.0 },
-        { station: "Station 5", beds_planned: 24, beds_occupied: 21, occupancy_pct: 87.5, qual_mix_label: "Pflegefachkraft", variance_hours: 2.5 },
-        { station: "Station 6", beds_planned: 14, beds_occupied: 10, occupancy_pct: 71.4, qual_mix_label: "Pflegefachassistenz", variance_hours: -5.0 },
-        { station: "Station 7", beds_planned: 26, beds_occupied: 22, occupancy_pct: 84.6, qual_mix_label: "Pflegefachkraft", variance_hours: 3.0 },
-        { station: "Station 8", beds_planned: 12, beds_occupied: 9, occupancy_pct: 75.0, qual_mix_label: "Pflegefachassistenz", variance_hours: -2.5 },
-        { station: "OP", beds_planned: 10, beds_occupied: 8, occupancy_pct: 80.0, qual_mix_label: "Fachpflegekraft OP", variance_hours: -1.0 },
-        { station: "ZNA", beds_planned: 15, beds_occupied: 13, occupancy_pct: 86.7, qual_mix_label: "Notfallpflege", variance_hours: 0.5 },
-        { station: "Intensivstation", beds_planned: 13, beds_occupied: 12, occupancy_pct: 92.3, qual_mix_label: "Fachpflegekraft Intensiv", variance_hours: -2.0 },
-        { station: "Endoskopie", beds_planned: 8, beds_occupied: 6, occupancy_pct: 75.0, qual_mix_label: "Pflegefachkraft", variance_hours: -1.5 }
-      ],
-    shift_mix: [
-      { label: "Frueh", value: 42 },
-      { label: "Spaet", value: 34 },
-      { label: "Nacht", value: 24 }
-    ]
-  };
 
   const buildEmptyTrend = (year) => {
     const y = Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear();
@@ -2035,19 +1993,15 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     stationsSort: document.getElementById("stationsSort")
   };
 
-  const ensureDebugBanner = () => {
-    let banner = document.getElementById("insightsDebugBanner");
-    if (!banner) {
-      banner = document.createElement("div");
-      banner.id = "insightsDebugBanner";
-      banner.className = "";
-      document.body.appendChild(banner);
+
+
+  const resolveApiBase = () => {
+    const host = window.location.hostname || "";
+    if (host.endsWith("clinicon.de")) {
+      return window.location.origin;
     }
-    return banner;
+    return "https://clinicon-stellenplan.maarten-koomen.workers.dev";
   };
-
-  { const b = ensureDebugBanner(); b.textContent = 'Debug active'; }
-
 
   const isCrossOrigin = (url) => {
     try {
@@ -2073,13 +2027,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   const normalizeNumber = (value) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
-  };
-
-  const seededValue = (label, min, max) => {
-    const text = String(label || "");
-    const seed = text.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-    const range = Math.max(0, max - min);
-    return min + (seed % 100) / 100 * range;
   };
 
   const formatPercent = (value) => `${fmtNumber.format(value)}%`;
@@ -2189,17 +2136,11 @@ function renderQualSection(agg, data) {
 
     const baseSoll = agg.soll || 0;
     const baseIst = agg.ist || 0;
-    const fallbackShares = {
-      pfk: { soll: 0.55, ist: 0.53 },
-      pfa: { soll: 0.25, ist: 0.24 },
-      uk: { soll: 0.15, ist: 0.17 },
-      mfa: { soll: 0.05, ist: 0.06 }
-    };
 
-    setValues(elements.qualPfkSoll, elements.qualPfkIst, elements.qualPfkCov, pfk, baseSoll * fallbackShares.pfk.soll, baseIst * fallbackShares.pfk.ist);
-    setValues(elements.qualPfaSoll, elements.qualPfaIst, elements.qualPfaCov, pfa, baseSoll * fallbackShares.pfa.soll, baseIst * fallbackShares.pfa.ist);
-    setValues(elements.qualUkSoll, elements.qualUkIst, elements.qualUkCov, uk, baseSoll * fallbackShares.uk.soll, baseIst * fallbackShares.uk.ist);
-    setValues(elements.qualMfaSoll, elements.qualMfaIst, elements.qualMfaCov, mfa, baseSoll * fallbackShares.mfa.soll, baseIst * fallbackShares.mfa.ist);
+    setValues(elements.qualPfkSoll, elements.qualPfkIst, elements.qualPfkCov, pfk, 0, 0);
+    setValues(elements.qualPfaSoll, elements.qualPfaIst, elements.qualPfaCov, pfa, 0, 0);
+    setValues(elements.qualUkSoll, elements.qualUkIst, elements.qualUkCov, uk, 0, 0);
+    setValues(elements.qualMfaSoll, elements.qualMfaIst, elements.qualMfaCov, mfa, 0, 0);
   }
 
   function sortStations(stations, sortKey) {
@@ -2580,7 +2521,7 @@ function renderQualSection(agg, data) {
       }
       syncInsightsYearSelect(safePayload);
       if (elements.dataNote) {
-        const source = data.meta && data.meta.source ? data.meta.source : "demo";
+        const source = data.meta && data.meta.source ? data.meta.source : "d1";
         const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
         elements.dataNote.textContent = `Datenquelle: ${source}. Zuletzt aktualisiert: ${updated}`;
       }
@@ -2591,7 +2532,7 @@ function renderQualSection(agg, data) {
       }
       const trendSource = document.getElementById("trendSource");
       if (trendSource) {
-        const source = data.meta && data.meta.source ? data.meta.source : "demo";
+        const source = data.meta && data.meta.source ? data.meta.source : "d1";
         trendSource.textContent = `Quelle: ${source}`;
       }
     }
@@ -2648,7 +2589,7 @@ function renderQualSection(agg, data) {
   };
 
     async function loadInsights() {
-      const apiBase = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const apiBase = resolveApiBase();
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       const deptSelect = document.getElementById("insightsDeptSelect");
@@ -2666,24 +2607,26 @@ function renderQualSection(agg, data) {
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      { const banner = ensureDebugBanner(); banner.textContent = `Request: ${endpoint}`; }
       try {
         const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
         if (emailHeader) sessionStorage.setItem("user_email", emailHeader);
         const headers = { Accept: "application/json" };
         if (emailHeader) headers["x-user-email"] = emailHeader;
-        const response = await fetch(endpoint, { headers, credentials: "omit", cache: "no-store" });
-        { const banner = ensureDebugBanner(); banner.textContent += `
-Status: ${response.status}
-Email: ${emailHeader || '-'}
-Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
+        if (isCrossOrigin(endpoint) && !emailHeader) {
+          if (elements.dataNote) {
+            elements.dataNote.textContent = "Insights warten auf Login-Email ...";
+          }
+          setTimeout(() => loadInsights(), 300);
+          return;
+        }
+        const creds = isCrossOrigin(endpoint) ? "omit" : "include";
+        const response = await fetch(endpoint, { headers, credentials: creds, cache: "no-store" });
         if (!response.ok) {
           throw new Error(`API error ${response.status}`);
         }
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
           const raw = await response.text();
-          { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 Non-JSON: ${contentType}
 ${raw.slice(0,400)}`; }
           throw new Error(`Non-JSON response: ${contentType}`);
@@ -2722,7 +2665,6 @@ ${raw.slice(0,400)}`; }
         if (elements.dataNote) {
           elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
         }
-        { const banner = ensureDebugBanner(); banner.textContent += `
 Fehler: ${err && err.message ? err.message : err}`; }
       }
     }
@@ -2730,7 +2672,6 @@ Fehler: ${err && err.message ? err.message : err}`; }
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      { const banner = ensureDebugBanner(); banner.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
         const primaryCreds = isCrossOrigin(endpoint) ? "omit" : "include";
@@ -2739,14 +2680,12 @@ Fehler: ${err && err.message ? err.message : err}`; }
         const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
         const fallbackHeaders = { Accept: "application/json" };
         if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
-        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 `; }
         response = await fetch(
           "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
             (params.toString() ? `?${params.toString()}` : ""),
           { headers: fallbackHeaders, cache: "no-store" }
         );
-        { const banner = ensureDebugBanner(); banner.textContent += `
 Status: ${response.status}
 Email: ${emailHeader || '-'}
 Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
@@ -2757,7 +2696,6 @@ Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         const raw = await response.text();
-        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 Non-JSON: ${contentType}
 ${raw.slice(0,400)}`; }
         throw new Error(`Non-JSON response: ${contentType}`);
@@ -2796,7 +2734,6 @@ ${raw.slice(0,400)}`; }
       if (elements.dataNote) {
         elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
       }
-      { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 Fehler: ${err && err.message ? err.message : err}`; }
     }
   }
@@ -2844,7 +2781,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
     let deptTries = 0;
     const populateDepartments = async () => {
       if (!deptSelect) return;
-      const apiBase = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const apiBase = resolveApiBase();
       const params = new URLSearchParams();
       let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       if (!tenantId) {
@@ -2865,11 +2802,18 @@ Fehler: ${err && err.message ? err.message : err}`; }
       const endpoint = apiBase.replace(/\/$/, "") + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
         const deptCreds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
-      const deptHeaders = { Accept: "application/json" };
-      const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
-      if (deptEmail) sessionStorage.setItem("user_email", deptEmail);
-      if (deptEmail) deptHeaders["x-user-email"] = deptEmail;
-      const response = await fetch(endpoint, { headers: deptHeaders, credentials: deptCreds });
+        const deptHeaders = { Accept: "application/json" };
+        const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
+        if (deptEmail) sessionStorage.setItem("user_email", deptEmail);
+        if (deptEmail) deptHeaders["x-user-email"] = deptEmail;
+        if (isCrossOrigin(endpoint) && !deptEmail) {
+          deptTries += 1;
+          if (deptTries < 10) {
+            setTimeout(populateDepartments, 300);
+          }
+          return;
+        }
+        const response = await fetch(endpoint, { headers: deptHeaders, credentials: deptCreds });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }

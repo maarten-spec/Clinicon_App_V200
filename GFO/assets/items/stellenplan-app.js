@@ -65,29 +65,8 @@
   };
 
   const STORAGE_KEY = "clinicon_stellenplan_v1";
-  const FALLBACK_ORG_UNITS = [
-    { code: "STA1", name: "Station 1" },
-    { code: "STA2", name: "Station 2" },
-    { code: "STA3", name: "Station 3" },
-    { code: "STA4", name: "Station 4" },
-    { code: "STA5", name: "Station 5" },
-    { code: "OPS", name: "OP / Endoskopie" },
-    { code: "PDL", name: "Pflegedienstleitung" },
-  ];
-  const FALLBACK_QUAL_OPTIONS = [
-    "Pflegefachkraft",
-    "Pflegefachassistenz",
-    "Notfallpflege",
-    "Intensivpflege",
-    "Hygiene",
-    "Praxisanleitung",
-    "OP",
-    "Endoskopie",
-    "Onkologie",
-    "Palliativ",
-    "Wundmanagement",
-    "Dialyse",
-  ];
+  const FALLBACK_ORG_UNITS = [];
+  const FALLBACK_QUAL_OPTIONS = [];
   const state = {
     orgUnits: [],
     qualOptions: [],
@@ -326,14 +305,14 @@
   async function loadLookups() {
     try {
       const units = await API.getOrgUnits();
-      state.orgUnits = Array.isArray(units) && units.length ? units : FALLBACK_ORG_UNITS;
+      state.orgUnits = Array.isArray(units) ? units : [];
       const quals = await API.getQualifikationen();
       state.qualOptions = (Array.isArray(quals) ? quals.map(q => q.bezeichnung) : []).filter(Boolean);
-      if (!state.qualOptions.length) state.qualOptions = FALLBACK_QUAL_OPTIONS;
+      state.qualOptions = Array.isArray(state.qualOptions) ? state.qualOptions : [];
     } catch (error) {
       console.warn("Lookups fehlgeschlagen, verwende Fallback", error);
-      state.orgUnits = FALLBACK_ORG_UNITS;
-      state.qualOptions = FALLBACK_QUAL_OPTIONS;
+      state.orgUnits = [];
+      state.qualOptions = [];
     }
   }
 
