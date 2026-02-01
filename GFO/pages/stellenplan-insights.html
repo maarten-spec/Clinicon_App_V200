@@ -1995,13 +1995,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
 
 
-  const resolveApiBase = () => {
-    const host = window.location.hostname || "";
-    if (host.endsWith("clinicon.de")) {
-      return window.location.origin;
-    }
-    return "https://clinicon-stellenplan.maarten-koomen.workers.dev";
-  };
+  const resolveApiBase = () => "https://clinicon-stellenplan.maarten-koomen.workers.dev";
 
   const isCrossOrigin = (url) => {
     try {
@@ -2611,7 +2605,7 @@ function renderQualSection(agg, data) {
         const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
         if (emailHeader) sessionStorage.setItem("user_email", emailHeader);
         const headers = { Accept: "application/json" };
-        if (emailHeader) headers["x-user-email"] = emailHeader;
+        if (isCrossOrigin(endpoint) && emailHeader) headers["x-user-email"] = emailHeader;
         if (isCrossOrigin(endpoint) && !emailHeader) {
           if (elements.dataNote) {
             elements.dataNote.textContent = "Insights warten auf Login-Email ...";
@@ -2626,9 +2620,6 @@ function renderQualSection(agg, data) {
         }
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
-          const raw = await response.text();
-Non-JSON: ${contentType}
-${raw.slice(0,400)}`; }
           throw new Error(`Non-JSON response: ${contentType}`);
         }
         const payload = await response.json();
@@ -2657,7 +2648,7 @@ ${raw.slice(0,400)}`; }
             0
           );
           const sourceLabel = safePayload.meta && safePayload.meta.source ? safePayload.meta.source : 'd1';
-          elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZÄ`;
+          elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZ?`;
         }
         applyData(safePayload);
       } catch (err) {
@@ -2665,78 +2656,8 @@ ${raw.slice(0,400)}`; }
         if (elements.dataNote) {
           elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
         }
-Fehler: ${err && err.message ? err.message : err}`; }
       }
     }
-      params.set("year", String(year));
-      if (tenantId) params.set("tenant", tenantId);
-      if (departmentId) params.set("department", departmentId);
-      const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      try {
-        const headers = { Accept: "application/json" };
-        const primaryCreds = isCrossOrigin(endpoint) ? "omit" : "include";
-        let response = await fetch(endpoint, { headers, credentials: primaryCreds, cache: "no-store" });
-      if (!response.ok) {
-        const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
-        const fallbackHeaders = { Accept: "application/json" };
-        if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
-`; }
-        response = await fetch(
-          "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
-            (params.toString() ? `?${params.toString()}` : ""),
-          { headers: fallbackHeaders, cache: "no-store" }
-        );
-Status: ${response.status}
-Email: ${emailHeader || '-'}
-Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
-        if (!response.ok) {
-          throw new Error(`API error ${response.status}`);
-        }
-      }
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const raw = await response.text();
-Non-JSON: ${contentType}
-${raw.slice(0,400)}`; }
-        throw new Error(`Non-JSON response: ${contentType}`);
-      }
-      const payload = await response.json();
-      if (!payload || payload.ok === false) {
-        throw new Error("Invalid payload");
-      }
-      const safePayload = {
-        ...payload,
-        meta: payload.meta || emptyData.meta,
-        trend: Array.isArray(payload.trend) && payload.trend.length ? payload.trend : emptyData.trend,
-        stations: Array.isArray(payload.stations) ? payload.stations : [],
-        shift_mix: payload.shift_mix || emptyData.shift_mix,
-        mandatory_quals: Array.isArray(payload.mandatory_quals) ? payload.mandatory_quals : []
-      };
-      safePayload.trend = (safePayload.trend || []).map((row) => ({
-        ...row,
-        staffed_hours: normalizeNumber(row.staffed_hours),
-        required_hours: normalizeNumber(row.required_hours),
-        occupancy_pct: normalizeNumber(row.occupancy_pct),
-        wirtschaftsplan_hours: normalizeNumber(row.wirtschaftsplan_hours),
-        sollwert_hours: normalizeNumber(row.sollwert_hours)
-      }));
-      if (elements.dataNote) {
-        const istSum = safePayload.stations.reduce(
-          (acc, row) => acc + normalizeNumber(row.ist_vza ?? row.vk_ist ?? row.beds_occupied ?? 0),
-          0
-        );
-        const sourceLabel = safePayload.meta && safePayload.meta.source ? safePayload.meta.source : 'd1';
-        elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZÄ`;
-      }
-      applyData(safePayload);
-    } catch (err) {
-      applyData(emptyData);
-      if (elements.dataNote) {
-        elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
-      }
-Fehler: ${err && err.message ? err.message : err}`; }
-    }
-  }
 
   const refreshButton = document.getElementById("refreshButton");
   if (refreshButton) {
