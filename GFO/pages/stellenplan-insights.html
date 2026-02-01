@@ -2046,6 +2046,15 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     return banner;
   };
 
+
+  const isCrossOrigin = (url) => {
+    try {
+      return new URL(url, window.location.href).origin !== window.location.origin;
+    } catch {
+      return false;
+    }
+  };
+
   const chartColors = {
     accent: "#1c6bff",
     accent2: "#ff6b35",
@@ -2627,7 +2636,8 @@ function renderQualSection(agg, data) {
       { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
-        let response = await fetch(endpoint, { headers, credentials: "include", cache: "no-store" });
+        const primaryCreds = isCrossOrigin(endpoint) ? "omit" : "include";
+        let response = await fetch(endpoint, { headers, credentials: primaryCreds, cache: "no-store" });
       if (!response.ok) {
         const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
         const fallbackHeaders = { Accept: "application/json" };
@@ -2755,7 +2765,8 @@ Fehler: ${err && err.message ? err.message : err}`; }
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase.replace(/\/$/, "") + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+        const deptCreds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
+      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: deptCreds });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }
