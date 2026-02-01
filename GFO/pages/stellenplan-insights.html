@@ -2580,9 +2580,20 @@ function renderQualSection(agg, data) {
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
+        const headers = { Accept: "application/json" };
+        let response = await fetch(endpoint, { headers, credentials: "include", cache: "no-store" });
       if (!response.ok) {
-        throw new Error(`API error ${response.status}`);
+        const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
+        const fallbackHeaders = { Accept: "application/json" };
+        if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
+        response = await fetch(
+          "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
+            (params.toString() ? `?${params.toString()}` : ""),
+          { headers: fallbackHeaders, cache: "no-store" }
+        );
+        if (!response.ok) {
+          throw new Error(`API error ${response.status}`);
+        }
       }
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
