@@ -2615,7 +2615,7 @@ function renderQualSection(agg, data) {
   };
 
     async function loadInsights() {
-      const apiBase = document.body.dataset.apiBase || "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const apiBase = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       const deptSelect = document.getElementById("insightsDeptSelect");
@@ -2643,7 +2643,7 @@ function renderQualSection(agg, data) {
         const fallbackHeaders = { Accept: "application/json" };
         if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
         { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
-Fallback: worker`; }
+`; }
         response = await fetch(
           "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
             (params.toString() ? `?${params.toString()}` : ""),
@@ -2664,7 +2664,7 @@ ${raw.slice(0,400)}`; }
         throw new Error(`Non-JSON response: ${contentType}`);
       }
       const payload = await response.json();
-      if (!payload || !payload.stations || !payload.trend) {
+      if (!payload || payload.ok === false) {
         throw new Error("Invalid payload");
       }
       const safePayload = {
@@ -2745,7 +2745,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
     let deptTries = 0;
     const populateDepartments = async () => {
       if (!deptSelect) return;
-      const apiBase = document.body.dataset.apiBase || "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+      const apiBase = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
       const params = new URLSearchParams();
       let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       if (!tenantId) {
@@ -2766,7 +2766,10 @@ Fehler: ${err && err.message ? err.message : err}`; }
       const endpoint = apiBase.replace(/\/$/, "") + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
         const deptCreds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
-      const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: deptCreds });
+      const deptHeaders = { Accept: "application/json" };
+      const deptEmail = (sessionStorage.getItem("user_email") || "").trim();
+      if (deptEmail) deptHeaders["x-user-email"] = deptEmail;
+      const response = await fetch(endpoint, { headers: deptHeaders, credentials: deptCreds });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }
