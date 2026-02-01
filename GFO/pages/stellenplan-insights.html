@@ -2040,11 +2040,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     if (!banner) {
       banner = document.createElement("div");
       banner.id = "insightsDebugBanner";
-      banner.className = "hidden";
+      banner.className = "";
       document.body.appendChild(banner);
     }
     return banner;
   };
+
+  { const b = ensureDebugBanner(); b.textContent = 'Debug active'; }
 
 
   const isCrossOrigin = (url) => {
