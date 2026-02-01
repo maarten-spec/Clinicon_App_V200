@@ -2136,26 +2136,26 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
       elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
     } else {
-      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZ?`;
+      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZÄ`;
       elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
       elements.kpiFulfillmentProgress.style.width = `${Math.min(100, totalIst * 12).toFixed(1)}%`;
     }
 
     const qualSum = pfkIst + pfaIst + mfaIst;
-    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZ?` : "--";
+    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZÄ` : "--";
     elements.kpiQualCoverageSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
     elements.kpiQualCoverageProgress.style.width = `${Math.min(100, qualSum * 12).toFixed(1)}%`;
 
     elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
-    elements.kpiMutterschutzSub.textContent = "VZ?";
+    elements.kpiMutterschutzSub.textContent = "VZ\u00C4";
     elements.kpiMutterschutzProgress.style.width = `${Math.min(100, (agg.mutterschutz || 0) * 12).toFixed(1)}%`;
 
     elements.kpiElternzeit.textContent = fmtNumber.format(agg.elternzeit || 0);
-    elements.kpiElternzeitSub.textContent = "VZ?";
+    elements.kpiElternzeitSub.textContent = "VZ\u00C4";
     elements.kpiElternzeitProgress.style.width = `${Math.min(100, (agg.elternzeit || 0) * 12).toFixed(1)}%`;
 
     elements.kpiKol.textContent = fmtNumber.format(agg.kol || 0);
-    elements.kpiKolSub.textContent = "VZ?";
+    elements.kpiKolSub.textContent = "VZ\u00C4";
     elements.kpiKolProgress.style.width = `${Math.min(100, (agg.kol || 0) * 12).toFixed(1)}%`;
   }
 

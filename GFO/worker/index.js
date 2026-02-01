@@ -101,6 +101,8 @@ function getAuthEmail(request) {
   return (
     request.headers.get("cf-access-authenticated-user-email") ||
     request.headers.get("CF-Access-Authenticated-User-Email") ||
+    request.headers.get("x-user-email") ||
+    request.headers.get("X-User-Email") ||
     ""
   ).trim();
 }
