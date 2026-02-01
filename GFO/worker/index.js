@@ -197,6 +197,7 @@ function buildDateString(year, month) {
 function withCors(response, request) {
   const req = request || response.__request || null;
   const origin = req ? req.headers.get("Origin") : null;
+  const reqHeaders = req ? req.headers.get("Access-Control-Request-Headers") : null;
   const headers = new Headers(response.headers || {});
   if (origin) {
     headers.set("Access-Control-Allow-Origin", origin);
@@ -205,7 +206,10 @@ function withCors(response, request) {
     headers.set("Access-Control-Allow-Origin", "*");
   }
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "content-type, x-user-email, cf-access-authenticated-user-email");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    reqHeaders && reqHeaders.trim() ? reqHeaders : "content-type, x-user-email, cf-access-authenticated-user-email"
+  );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -213,8 +217,10 @@ function withCors(response, request) {
   });
 }
 
+
 async function handleOptions(request) {
   const origin = request.headers.get("Origin");
+  const reqHeaders = request.headers.get("Access-Control-Request-Headers");
   const headers = new Headers(JSON_HEADERS);
   if (origin) {
     headers.set("Access-Control-Allow-Origin", origin);
@@ -223,9 +229,13 @@ async function handleOptions(request) {
     headers.set("Access-Control-Allow-Origin", "*");
   }
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "content-type, x-user-email, cf-access-authenticated-user-email");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    reqHeaders && reqHeaders.trim() ? reqHeaders : "content-type, x-user-email, cf-access-authenticated-user-email"
+  );
   return new Response(null, { status: 204, headers });
 }
+
 
 async function ensureQualifications(db) {
   const existing = await db.prepare("SELECT code, label FROM qualifications").all();
