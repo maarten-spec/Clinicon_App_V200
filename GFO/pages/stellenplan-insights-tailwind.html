@@ -2529,14 +2529,27 @@ function renderQualSection(agg, data) {
       const apiBase = document.body.dataset.apiBase || "";
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
-      const departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
+      const deptSelect = document.getElementById("insightsDeptSelect");
+      const year = new Date().getFullYear();
+      let departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
+      if (deptSelect && departmentId) {
+        const optionValues = Array.from(deptSelect.options || []).map((opt) => String(opt.value));
+        if (optionValues.length > 1 && !optionValues.includes(String(departmentId))) {
+          departmentId = "";
+        }
+      }
+      params.set("year", String(year));
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
       if (!response.ok) {
-        throw new Error("API error");
+        throw new Error(`API error ${response.status}`);
+      }
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Non-JSON response: ${contentType}`);
       }
       const payload = await response.json();
       if (!payload || !payload.stations || !payload.trend) {
@@ -2567,6 +2580,9 @@ function renderQualSection(agg, data) {
       applyData(safePayload);
     } catch (err) {
       applyData(emptyData);
+      if (elements.dataNote) {
+        elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
+      }
     }
   }
 
@@ -2581,6 +2597,7 @@ function renderQualSection(agg, data) {
       updateHeaderMeta();
     });
   }
+  window.__loadInsights = loadInsights;
   loadInsights();
   // SCRIPT-END
   })();
@@ -2648,7 +2665,7 @@ function renderQualSection(agg, data) {
       if (tenantId) params.set("tenant", tenantId);
       const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
-        const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
+        const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
         if (!response.ok) {
           throw new Error("Departments fetch failed");
         }
@@ -2665,6 +2682,17 @@ function renderQualSection(agg, data) {
           }
           deptSelect.appendChild(option);
         });
+        const optionValues = normalizedDepartments.map((dept) => String(dept.id));
+        if (current && !optionValues.includes(String(current))) {
+          deptSelect.value = "";
+          sessionStorage.removeItem("department_id");
+          delete document.body.dataset.departmentId;
+        } else if (deptSelect.value) {
+          document.body.dataset.departmentId = String(deptSelect.value);
+        }
+        if (typeof window.__loadInsights === "function") {
+          window.__loadInsights();
+        }
       } catch (err) {
         // keep default option only
       }
@@ -2675,10 +2703,14 @@ function renderQualSection(agg, data) {
         const nextValue = deptSelect.value || "";
         if (nextValue) {
           sessionStorage.setItem("department_id", nextValue);
+          document.body.dataset.departmentId = String(nextValue);
         } else {
           sessionStorage.removeItem("department_id");
+          delete document.body.dataset.departmentId;
         }
-        window.location.reload();
+        if (typeof window.__loadInsights === "function") {
+          window.__loadInsights();
+        }
       });
       populateDepartments();
     }
