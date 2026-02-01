@@ -2606,7 +2606,7 @@ function renderQualSection(agg, data) {
   };
 
     async function loadInsights() {
-      const apiBase = document.body.dataset.apiBase || "";
+      const apiBase = document.body.dataset.apiBase || "https://clinicon-stellenplan.maarten-koomen.workers.dev";
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       const deptSelect = document.getElementById("insightsDeptSelect");
@@ -2623,7 +2623,7 @@ function renderQualSection(agg, data) {
       params.set("year", String(year));
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
-      const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
+      const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
       { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
@@ -2735,7 +2735,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
     let deptTries = 0;
     const populateDepartments = async () => {
       if (!deptSelect) return;
-      const apiBase = document.body.dataset.apiBase || "";
+      const apiBase = document.body.dataset.apiBase || "https://clinicon-stellenplan.maarten-koomen.workers.dev";
       const params = new URLSearchParams();
       let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       if (!tenantId) {
@@ -2753,7 +2753,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
         return;
       }
       if (tenantId) params.set("tenant", tenantId);
-      const endpoint = apiBase + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
+      const endpoint = apiBase.replace(/\/$/, "") + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
       try {
         const response = await fetch(endpoint, { headers: { Accept: "application/json" }, credentials: "same-origin" });
         if (!response.ok) {
