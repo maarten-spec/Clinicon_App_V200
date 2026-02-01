@@ -2614,6 +2614,24 @@ function renderQualSection(agg, data) {
     sessionStorage.setItem("insights_year", yearSelect.value);
   };
 
+  const ensureAccessEmail = async () => {
+    const cached = (sessionStorage.getItem("user_email") || "").trim();
+    if (cached) return cached;
+    try {
+      const res = await fetch("/cdn-cgi/access/get-identity", { credentials: "same-origin" });
+      if (!res.ok) return "";
+      const data = await res.json();
+      const email = data && (data.email || data.user_email || data.user) ? String(data.email || data.user_email || data.user) : "";
+      if (email) {
+        sessionStorage.setItem("user_email", email);
+        return email;
+      }
+    } catch {
+      return "";
+    }
+    return "";
+  };
+
     async function loadInsights() {
       const apiBase = "https://clinicon-stellenplan.maarten-koomen.workers.dev";
       const params = new URLSearchParams();
@@ -2633,14 +2651,16 @@ function renderQualSection(agg, data) {
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent = `Request: ${endpoint}`; }
+      { const banner = ensureDebugBanner(); banner.textContent = `Request: ${endpoint}`; }
       try {
-        const emailHeader = (sessionStorage.getItem("user_email") || "").trim();
+        const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim();
         const headers = { Accept: "application/json" };
         if (emailHeader) headers["x-user-email"] = emailHeader;
         const response = await fetch(endpoint, { headers, credentials: "omit", cache: "no-store" });
-        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
-Status: ${response.status}`; }
+        { const banner = ensureDebugBanner(); banner.textContent += `
+Status: ${response.status}
+Email: ${emailHeader || '-'}
+Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
         if (!response.ok) {
           throw new Error(`API error ${response.status}`);
         }
@@ -2686,7 +2706,7 @@ ${raw.slice(0,400)}`; }
         if (elements.dataNote) {
           elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
         }
-        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
+        { const banner = ensureDebugBanner(); banner.textContent += `
 Fehler: ${err && err.message ? err.message : err}`; }
       }
     }
@@ -2694,7 +2714,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase.replace(/\/$/, "") + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent = `Request: ${endpoint}`; }
+      { const banner = ensureDebugBanner(); banner.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
         const primaryCreds = isCrossOrigin(endpoint) ? "omit" : "include";
@@ -2710,8 +2730,10 @@ Fehler: ${err && err.message ? err.message : err}`; }
             (params.toString() ? `?${params.toString()}` : ""),
           { headers: fallbackHeaders, cache: "no-store" }
         );
-        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
-Status: ${response.status}`; }
+        { const banner = ensureDebugBanner(); banner.textContent += `
+Status: ${response.status}
+Email: ${emailHeader || '-'}
+Tenant: ${tenantId || '-'} Dept: ${departmentId || '-'}`; }
         if (!response.ok) {
           throw new Error(`API error ${response.status}`);
         }
@@ -2828,7 +2850,7 @@ Fehler: ${err && err.message ? err.message : err}`; }
       try {
         const deptCreds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
       const deptHeaders = { Accept: "application/json" };
-      const deptEmail = (sessionStorage.getItem("user_email") || "").trim();
+      const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim();
       if (deptEmail) deptHeaders["x-user-email"] = deptEmail;
       const response = await fetch(endpoint, { headers: deptHeaders, credentials: deptCreds });
         if (!response.ok) {
