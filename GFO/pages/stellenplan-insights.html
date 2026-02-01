@@ -754,6 +754,8 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   @media (max-width: 900px){
 }
   #dataRange{display:none !important;}
+  #insightsDebugBanner{position:fixed;top:14px;right:14px;z-index:99999;max-width:360px;padding:10px 12px;border-radius:12px;background:#111827;color:#f9fafb;font-size:12px;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,0.25);white-space:pre-wrap;}
+  #insightsDebugBanner.hidden{display:none;}
   </style>
 </head>
 <body>
@@ -799,6 +801,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               <span class="filter-note">Filter wirkt auf KPIs, Tabellen und Grafiken.</span>
             </div>
           </section>
+          <div id="insightsDebug" class="data-note" style="margin-top:6px; white-space:pre-wrap;"></div>
           <section class="kpi-grid kpi-quickcheck">
             <div class="kpi-card kpi-tone-teal">
               <h4>Stellenplan-Erfüllungsgrad</h4>
@@ -983,7 +986,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               </table>
             </div>
             <p class="data-note" id="dataNote">Datenquelle: Demo-Datensatz.</p>
-            <div id="insightsDebug" class="data-note" style="margin-top:6px; white-space:pre-wrap;"></div>
           </section>
         </div>
       <div data-tabs="dashboard">
@@ -2032,6 +2034,18 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     stationsTable: document.getElementById("stationsTable"),
     stationsSort: document.getElementById("stationsSort")
   };
+
+  const ensureDebugBanner = () => {
+    let banner = document.getElementById("insightsDebugBanner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "insightsDebugBanner";
+      banner.className = "hidden";
+      document.body.appendChild(banner);
+    }
+    return banner;
+  };
+
   const chartColors = {
     accent: "#1c6bff",
     accent2: "#ff6b35",
@@ -2610,7 +2624,7 @@ function renderQualSection(agg, data) {
       if (tenantId) params.set("tenant", tenantId);
       if (departmentId) params.set("department", departmentId);
       const endpoint = apiBase + "/api/insights" + (params.toString() ? `?${params.toString()}` : "");
-      if (elements.insightsDebug) { elements.insightsDebug.textContent = `Request: ${endpoint}`; }
+      { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent = `Request: ${endpoint}`; }
       try {
         const headers = { Accept: "application/json" };
         let response = await fetch(endpoint, { headers, credentials: "include", cache: "no-store" });
@@ -2618,14 +2632,14 @@ function renderQualSection(agg, data) {
         const fallbackEmail = (sessionStorage.getItem("user_email") || "").trim();
         const fallbackHeaders = { Accept: "application/json" };
         if (fallbackEmail) fallbackHeaders["x-user-email"] = fallbackEmail;
-        if (elements.insightsDebug) { elements.insightsDebug.textContent += "
-Fallback: worker"; }
+        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
+Fallback: worker`; }
         response = await fetch(
           "https://clinicon-stellenplan.maarten-koomen.workers.dev/api/insights" +
             (params.toString() ? `?${params.toString()}` : ""),
           { headers: fallbackHeaders, cache: "no-store" }
         );
-        if (elements.insightsDebug) { elements.insightsDebug.textContent += `
+        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 Status: ${response.status}`; }
         if (!response.ok) {
           throw new Error(`API error ${response.status}`);
@@ -2634,7 +2648,7 @@ Status: ${response.status}`; }
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
         const raw = await response.text();
-        if (elements.insightsDebug) { elements.insightsDebug.textContent += `
+        { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
 Non-JSON: ${contentType}
 ${raw.slice(0,400)}`; }
         throw new Error(`Non-JSON response: ${contentType}`);
@@ -2673,10 +2687,8 @@ ${raw.slice(0,400)}`; }
       if (elements.dataNote) {
         elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
       }
-      if (elements.insightsDebug) {
-        elements.insightsDebug.textContent += `
-Fehler: ${err && err.message ? err.message : err}`;
-      }
+      { const banner = ensureDebugBanner(); banner.classList.remove('hidden'); banner.textContent += `
+Fehler: ${err && err.message ? err.message : err}`; }
     }
   }
 
