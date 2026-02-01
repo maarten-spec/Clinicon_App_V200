@@ -791,6 +791,11 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <option value="">Gesamtes Haus</option>
                 </select>
               </label>
+              <label>Jahr
+                <select id="insightsYearSelect">
+                  <option value="2026">2026</option>
+                </select>
+              </label>
               <span class="filter-note">Filter wirkt auf KPIs, Tabellen und Grafiken.</span>
             </div>
           </section>
@@ -1994,6 +1999,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     insightsVerbund: document.getElementById("insightsVerbund"),
     insightsMandant: document.getElementById("insightsMandant"),
     insightsFilterLabel: document.getElementById("insightsFilterLabel"),
+    insightsYearSelect: document.getElementById("insightsYearSelect"),
     kpiFulfillment: document.getElementById("kpiFulfillment"),
     kpiFulfillmentSub: document.getElementById("kpiFulfillmentSub"),
     kpiFulfillmentProgress: document.getElementById("kpiFulfillmentProgress"),
@@ -2099,18 +2105,6 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
   function renderQuickcheck(agg, data) {
     if (!elements.kpiFulfillment) return;
-    const totalIst = normalizeNumber(agg.ist);
-    const totalSoll = normalizeNumber(agg.soll);
-    if (totalSoll > 0) {
-      elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
-      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
-      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
-    } else {
-      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZÄ`;
-      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
-      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, totalIst * 12).toFixed(1)}%`;
-    }
-
     const mandatoryList = Array.isArray(data && data.mandatory_quals) ? data.mandatory_quals : [];
     const findByCode = (code) => mandatoryList.find((item) => String(item.code || "").toUpperCase() === code);
     const pfk = findByCode("PFK");
@@ -2119,21 +2113,33 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     const pfkIst = pfk ? normalizeNumber(pfk.ist_vza) : 0;
     const pfaIst = pfa ? normalizeNumber(pfa.ist_vza) : 0;
     const mfaIst = mfa ? normalizeNumber(mfa.ist_vza) : 0;
+    const totalIst = normalizeNumber(agg.ist);
+    const totalSoll = normalizeNumber(agg.soll);
+    if (totalSoll > 0) {
+      elements.kpiFulfillment.textContent = formatPercent(agg.fulfillment || 0);
+      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
+      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, agg.fulfillment || 0).toFixed(1)}%`;
+    } else {
+      elements.kpiFulfillment.textContent = `${fmtNumber.format(totalIst)} VZ?`;
+      elements.kpiFulfillmentSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
+      elements.kpiFulfillmentProgress.style.width = `${Math.min(100, totalIst * 12).toFixed(1)}%`;
+    }
+
     const qualSum = pfkIst + pfaIst + mfaIst;
-    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZÄ` : "--";
+    elements.kpiQualCoverage.textContent = qualSum ? `${fmtNumber.format(qualSum)} VZ?` : "--";
     elements.kpiQualCoverageSub.textContent = `PFK ${fmtNumber.format(pfkIst)} | PFA ${fmtNumber.format(pfaIst)} | MFA ${fmtNumber.format(mfaIst)}`;
     elements.kpiQualCoverageProgress.style.width = `${Math.min(100, qualSum * 12).toFixed(1)}%`;
 
     elements.kpiMutterschutz.textContent = fmtNumber.format(agg.mutterschutz || 0);
-    elements.kpiMutterschutzSub.textContent = "VZÄ";
+    elements.kpiMutterschutzSub.textContent = "VZ?";
     elements.kpiMutterschutzProgress.style.width = `${Math.min(100, (agg.mutterschutz || 0) * 12).toFixed(1)}%`;
 
     elements.kpiElternzeit.textContent = fmtNumber.format(agg.elternzeit || 0);
-    elements.kpiElternzeitSub.textContent = "VZÄ";
+    elements.kpiElternzeitSub.textContent = "VZ?";
     elements.kpiElternzeitProgress.style.width = `${Math.min(100, (agg.elternzeit || 0) * 12).toFixed(1)}%`;
 
     elements.kpiKol.textContent = fmtNumber.format(agg.kol || 0);
-    elements.kpiKolSub.textContent = "VZÄ";
+    elements.kpiKolSub.textContent = "VZ?";
     elements.kpiKolProgress.style.width = `${Math.min(100, (agg.kol || 0) * 12).toFixed(1)}%`;
   }
 
@@ -2545,6 +2551,7 @@ function renderQualSection(agg, data) {
       if (elements.rangeLabel) {
         elements.rangeLabel.textContent = (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
       }
+      syncInsightsYearSelect(safePayload);
       if (elements.dataNote) {
         const source = data.meta && data.meta.source ? data.meta.source : "demo";
         const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
@@ -2562,12 +2569,34 @@ function renderQualSection(agg, data) {
       }
     }
 
+
+  const syncInsightsYearSelect = (data) => {
+    const yearSelect = elements.insightsYearSelect || document.getElementById("insightsYearSelect");
+    if (!yearSelect) return;
+    const years = Array.from(new Set((data && data.trend || []).map((row) => {
+      const raw = String(row.date || "");
+      const year = raw.slice(0, 4);
+      return /^\d{4}$/.test(year) ? year : null;
+    }).filter(Boolean)));
+    if (!years.length) {
+      years.push(String(new Date().getFullYear()));
+    }
+    years.sort((a, b) => Number(b) - Number(a));
+    const stored = sessionStorage.getItem("insights_year");
+    const preferred = yearSelect.value || stored || years[0];
+    yearSelect.innerHTML = years.map((y) => `<option value=\"${y}\">${y}</option>`).join("");
+    yearSelect.value = years.includes(String(preferred)) ? String(preferred) : years[0];
+    sessionStorage.setItem("insights_year", yearSelect.value);
+  };
+
     async function loadInsights() {
       const apiBase = document.body.dataset.apiBase || "";
       const params = new URLSearchParams();
       const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       const deptSelect = document.getElementById("insightsDeptSelect");
-      const year = new Date().getFullYear();
+      const yearSelect = elements.insightsYearSelect || document.getElementById("insightsYearSelect");
+      const storedYear = sessionStorage.getItem("insights_year");
+      const year = Number((yearSelect && yearSelect.value) || storedYear || new Date().getFullYear());
       let departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
       if (deptSelect && departmentId) {
         const optionValues = Array.from(deptSelect.options || []).map((opt) => String(opt.value));
@@ -2639,6 +2668,12 @@ function renderQualSection(agg, data) {
   const refreshButton = document.getElementById("refreshButton");
   if (refreshButton) {
     refreshButton.addEventListener("click", () => loadInsights());
+  }
+  if (elements.insightsYearSelect) {
+    elements.insightsYearSelect.addEventListener("change", () => {
+      sessionStorage.setItem("insights_year", elements.insightsYearSelect.value || "");
+      loadInsights();
+    });
   }
   if (elements.stationsSort) {
     elements.stationsSort.addEventListener("change", () => {
