@@ -492,6 +492,12 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     display:grid;
     gap:8px;
   }
+  .insights-tab .qual-card.no-frame{
+    border:none;
+    box-shadow:none;
+    background:transparent;
+    padding:10px 0;
+  }
   .insights-tab .qual-title{
     font-weight:700;
     font-size:.95rem;
@@ -841,7 +847,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               </div>
             </div>
             <div class="qual-grid">
-              <div class="qual-card">
+              <div class="qual-card no-frame">
                 <div class="qual-title">Pflegefachkraft (PFK)</div>
                 <div class="qual-row">
                   <span>SOLL</span>
@@ -856,7 +862,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <strong id="qualPfkCov" class="badge neutral">--</strong>
                 </div>
               </div>
-              <div class="qual-card">
+              <div class="qual-card no-frame">
                 <div class="qual-title">Pflegefachassistenz (PFA)</div>
                 <div class="qual-row">
                   <span>SOLL</span>
@@ -871,7 +877,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <strong id="qualPfaCov" class="badge neutral">--</strong>
                 </div>
               </div>
-              <div class="qual-card">
+              <div class="qual-card no-frame">
                 <div class="qual-title">Ungelernte Kraft (UK)</div>
                 <div class="qual-row">
                   <span>SOLL</span>
@@ -886,7 +892,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
                   <strong id="qualUkCov" class="badge neutral">--</strong>
                 </div>
               </div>
-              <div class="qual-card">
+              <div class="qual-card no-frame">
                 <div class="qual-title">MFA</div>
                 <div class="qual-row">
                   <span>SOLL</span>
@@ -1160,7 +1166,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       <div class="qual-head" style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
         <div>
           <h3 style="margin-top:0;">Qualifikationen &amp; Abdeckung</h3>
-          <p class="hint" style="margin:6px 0 6px;">Daten aus <strong>stellenplan_employees</strong> (Mandant &amp; Jahr siehe Badges).</p>
+          <p class="hint" style="margin:6px 0 6px;">Daten aus <strong>Stellenplan (D1)</strong> (Mandant &amp; Jahr siehe Badges).</p>
           <ul id="hints" class="hint-list"></ul>
         </div>
         <div class="badge-bar">
@@ -1232,22 +1238,32 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       <div id="planSummary" class="hint" style="margin-top:10px;"></div>
     </section>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    const SUPABASE_URL_STORAGE='clinicon_supabase_url';
-    const SUPABASE_KEY_STORAGE='clinicon_supabase_key';
     const MONTHS=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
     const DEPT_ORDER=['Station 1','Station 2','Station 3','Station 4','Station 5','Station 6','Station 7','Station 8','EKG','OP','ZNA','Intensivstation','Endoskopie','Radiologie','Labor','Sozialdienst','Pflegedienstleitung'];
-    const TABLE_EMP_BASE='stellenplan_employees';
-    const DEFAULT_SUPABASE_URL='https://fqilehnixnsujefyrdcy.supabase.co';
-    const DEFAULT_SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaWxlaG5peG5zdWplZnlyZGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MjIyNzUsImV4cCI6MjA3OTQ5ODI3NX0.Ml1J-YsID7_CXX7LbLZM4ayhWpV08FBSZc3rgVuwqt4';
-    const SUPABASE_URL=(window.SUPABASE_URL||localStorage.getItem(SUPABASE_URL_STORAGE)||DEFAULT_SUPABASE_URL).trim();
-    const SUPABASE_ANON_KEY=(window.SUPABASE_ANON_KEY||localStorage.getItem(SUPABASE_KEY_STORAGE)||DEFAULT_SUPABASE_KEY).trim();
-    const supabaseClient=(typeof window.supabase!=='undefined'&&SUPABASE_URL&&SUPABASE_ANON_KEY)?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
-    const SITE_LABEL=(sessionStorage.getItem('cliniconSite')||'').trim();
-    const SITE_CODE=SITE_LABEL.toLowerCase().replace(/[^a-z0-9_]/g,'');
-    const HAS_SITE=Boolean(SITE_CODE);
-    const tableName=(base)=>SITE_CODE?`${base}_${SITE_CODE}`:base;
+    const API_BASE=(document.body?.dataset?.apiBase||'').trim();
+    const apiUrl=(path)=>API_BASE?`${API_BASE.replace(/\/$/,'')}${path}`:path;
+    const fetchJson=async (path,options={})=>{
+      const headers={ 'content-type':'application/json' };
+      const response=await fetch(apiUrl(path),{ headers, credentials:'same-origin', ...options });
+      if(!response.ok){
+        const text=await response.text();
+        throw new Error(text||`HTTP ${response.status}`);
+      }
+      return response.json();
+    };
+    const getContextIds=()=>{
+      const body=document.body||{};
+      const tenantId=body.dataset?.tenantId||sessionStorage.getItem('tenant_id')||'';
+      const departmentId=body.dataset?.departmentId||sessionStorage.getItem('department_id')||'';
+      const tenant=Number.parseInt(tenantId,10);
+      const department=Number.parseInt(departmentId,10);
+      return {
+        tenantId:Number.isFinite(tenant)?tenant:null,
+        departmentId:Number.isFinite(department)?department:null
+      };
+    };
+    const SITE_LABEL=(sessionStorage.getItem('tenant_code')||sessionStorage.getItem('cliniconSite')||'').trim();
 
     const els={
       tabButtons:Array.from(document.querySelectorAll('[data-tab-btn]')),
@@ -1305,12 +1321,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     };
 
     const state={dept:'__all__',year:null,allEntries:[],currentTab:'insights',targets:{},selectedStation:'__all__'};
-    const PARAM_TABLE = SITE_CODE ? `parameter_${SITE_CODE}` : null;
     let planTotalVal = 0;
     let planMap = {};
     let planDepts = [];
     let forecastCache = [];
     let scenarioDeltas = Array(12).fill(0);
+    let yearsReady = false;
+    let deptIdMap = new Map();
     function getPlanValue(dept){return Number(planMap[dept]||0);}
 
     function setActiveTab(tab){state.currentTab=tab;(els.tabButtons||[]).forEach(btn=>{const a=btn.dataset.tabBtn===tab;btn.classList.toggle('active',a);btn.setAttribute('aria-pressed',a?'true':'false');});(els.tabSections||[]).forEach(sec=>{const tabs=(sec.dataset.tabs||'').split(/\s+/).filter(Boolean);sec.classList.toggle('section-hidden',!tabs.includes(tab));});}
@@ -1319,7 +1336,12 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     function setStatus(msg,ok=true){if(!els.status)return;els.status.textContent=msg;els.status.style.color=ok?'#16a34a':'#b91c1c';}
     function parseMonths(arr){if(Array.isArray(arr))return arr.map(v=>Number(v)||0); if(typeof arr==='string'){const c=arr.replace(/[{}]/g,''); if(!c)return Array(12).fill(0); return c.split(',').map(v=>Number(v)||0);} return Array(12).fill(0);}
     function normalizeQuals(t){return (t||'').split(',').map(s=>s.trim()).filter(Boolean);}
-    function isExtraRow(row){const pn=(row.personal_number||row.personalNumber||'').toString().toUpperCase();return pn.startsWith('EX-');}
+    function isExtraRow(row){
+      if(!row) return false;
+      if(row.category==='extra' || row.type==='Zusatz' || row.is_extra) return true;
+      const pn=(row.personal_number||row.personalNumber||'').toString().toUpperCase();
+      return pn.startsWith('EX-');
+    }
     function heatColor(diff){if(diff<=-0.5)return '#f87171'; if(diff<-0.1)return '#fde68a'; if(diff<=0.1)return '#bbf7d0'; return '#22c55e';}
     function linearForecast(data,count=12){const vals=(data||[]).map(v=>Number(v)||0);const n=vals.length;if(!n)return Array(count).fill(0);const xMean=(n-1)/2;const yMean=vals.reduce((a,v)=>a+v,0)/n;let num=0,den=0;vals.forEach((v,i)=>{num+=(i-xMean)*(v-yMean);den+=(i-xMean)*(i-xMean);});const slope=den?num/den:0;const intercept=yMean - slope*xMean;const out=[];const total=Math.max(count,n);for(let i=0;i<total;i++){out.push(Math.max(0,intercept + slope*i));}return out.slice(0,count);}
     function applyScenario(arr,delta){const d=Number(delta)||0;return (arr||[]).map(v=>Math.max(0,(Number(v)||0)+d));}
@@ -1589,36 +1611,19 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     }
 
     async function savePlanTotal(){
-      if(!supabaseClient || !PARAM_TABLE){setStatus('Supabase/Param-Tabelle nicht verfuegbar.', false);return;}
-      const year = Number(els.planYearSelect?.value || state.year);
-      const value = parseFloat(els.planTotalInput?.value||'0')||0;
-      const { error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .upsert({ dept:'Dienstart 01', year, wirtschaftsplan_vk:value }, { onConflict:'dept,year' });
-      if(error){setStatus(error.message,false);return;}
-      planTotalVal = value;
-      if(els.planTotalValue) els.planTotalValue.textContent = fmt(value)+' VK';
-      setStatus('Wirtschaftsplan gespeichert.', true);
-      renderPlanSummary();
+      setStatus('Gesamtwert wird aus den Planwerten berechnet.', true);
     }
 
-    async function loadPlanTotal(){
-      if(!supabaseClient || !PARAM_TABLE){
-        if(els.planTotalValue) els.planTotalValue.textContent='-';
-        return;
-      }
-      const { data, error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .select('wirtschaftsplan_vk')
-        .eq('dept','Dienstart 01')
-        .eq('year', state.year)
-        .limit(1)
-        .maybeSingle();
-      if(error){setStatus(error.message,false);return;}
-      const val = data?.wirtschaftsplan_vk ?? 0;
+    function loadPlanTotal(totalOverride){
+      const sum = Object.values(planMap||{}).reduce((acc,val)=>acc+(Number(val)||0),0);
+      const val = Number.isFinite(Number(totalOverride)) ? Number(totalOverride) : sum;
       planTotalVal = val;
       if(els.planTotalValue) els.planTotalValue.textContent = fmt(val)+' VK';
-      if(els.planTotalInput) els.planTotalInput.value = val;
+      if(els.planTotalInput){
+        els.planTotalInput.value = val;
+        els.planTotalInput.disabled = true;
+      }
+      if(els.planSaveBtn) els.planSaveBtn.disabled = true;
       renderPlanSummary();
     }
 
@@ -1697,28 +1702,29 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       renderDashLines(actual, baseForecast, scenario);
     }
 
-    async function loadPlanValues(){
-      if(!supabaseClient || !PARAM_TABLE){planMap={};return;}
-      const { data, error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .select('dept, wirtschaftsplan_vk')
-        .eq('year', state.year);
-      if(error){setStatus(error.message,false);return;}
-      planMap = {};
-      (data||[]).forEach(row => {
-        if(row.dept && row.dept !== 'Dienstart 01'){
-          planMap[row.dept] = Number(row.wirtschaftsplan_vk)||0;
-        }
-      });
+    function loadPlanValues(planByDept={}){
+      planMap = planByDept || {};
       renderPlanSummary(planDepts);
     }
 
     async function setPlanValueDb(dept,value){
-      if(!supabaseClient || !PARAM_TABLE) return;
-      const { error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .upsert({ dept, year: state.year, wirtschaftsplan_vk:value }, { onConflict:'dept,year' });
-      if(error){setStatus(error.message,false);}
+      const deptId = deptIdMap.get(dept);
+      const ctx = getContextIds();
+      if(!deptId || !ctx.tenantId) return;
+      const months = new Array(12).fill(Number(value)||0);
+      const payload = {
+        year: state.year,
+        employees: [],
+        extras: [],
+        planTargets: { months },
+        tenantId: ctx.tenantId,
+        departmentId: deptId
+      };
+      try {
+        await fetchJson('/api/stellenplan', { method:'POST', body: JSON.stringify(payload) });
+      } catch (err) {
+        setStatus(err.message,false);
+      }
     }
 
     function renderDashLines(actual,forecast,scenario){
@@ -1762,58 +1768,67 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     function renderQualTables(currentEntries,allEntries,filterQual='__all__'){if(els.qualDeptLabel)els.qualDeptLabel.textContent=state.dept||'-';if(els.qualYearLabel)els.qualYearLabel.textContent=state.year||'-';if(els.qualSiteLabel)els.qualSiteLabel.textContent=SITE_LABEL||'-';const build=list=>list.filter(e=>e.include!==false).map(e=>({dept:e.dept||state.dept||'-',name:(e.name||'').trim()||(e.personalNumber||'Unbenannt'),personalNumber:e.personalNumber||'',qualList:normalizeQuals(e.qual),type:e.type||'Mitarbeiter',months:e.months||e.values||[]}));const cur=build(currentEntries);const all=build(allEntries);const filtCur=filterQual==='__all__'?cur:cur.filter(e=>e.qualList.includes(filterQual));const filtAll=filterQual==='__all__'?all:all.filter(e=>e.qualList.includes(filterQual));if(els.qualDeptTable){if(!filtCur.length)els.qualDeptTable.innerHTML='<tr><td>Keine Qualifikationen erfasst.</td></tr>';else{const head='<tr><th>Name</th><th>Qualifikationen</th><th>Typ</th></tr>';const body=filtCur.map(r=>{const label=r.personalNumber?`${r.name} (${r.personalNumber})`:r.name;return `<tr><td>${label}</td><td>${r.qualList.join(', ')}</td><td>${r.type}</td></tr>`;}).join('');els.qualDeptTable.innerHTML=`<thead>${head}</thead><tbody>${body}</tbody>`;}}if(els.qualSummaryTable){if(!filtAll.length)els.qualSummaryTable.innerHTML='<tr><td>Keine Qualifikationen erfasst.</td></tr>';else{const by={};filtAll.forEach(r=>r.qualList.forEach(q=>{const k=`${q}|||${r.dept}`;by[k]=(by[k]||0)+1;}));const totals={};Object.entries(by).forEach(([k,c])=>{const [q]=k.split('|||');totals[q]=(totals[q]||0)+c;});const rows=[...Object.entries(by).map(([k,c])=>{const [q,d]=k.split('|||');return {q,d,c,isTotal:false};}).sort((a,b)=>a.q.localeCompare(b.q,'de')||a.d.localeCompare(b.d,'de')),...Object.entries(totals).map(([q,c])=>({q,d:'Gesamt Haus',c,isTotal:true}))];const head='<tr><th>Qualifikation</th><th>Abteilung</th><th>Anzahl</th></tr>';const body=rows.map(r=>`<tr${r.isTotal?' class="is-total"':''}><td>${r.q}</td><td>${r.d}</td><td style="text-align:right;">${r.c}</td></tr>`).join('');els.qualSummaryTable.innerHTML=`<thead>${head}</thead><tbody>${body}</tbody>`;}}if(els.qualPeopleTable){if(!filtAll.length)els.qualPeopleTable.innerHTML='<tr><td>Keine Qualifikationen erfasst.</td></tr>';else{const rows=filtAll.sort((a,b)=>a.dept.localeCompare(b.dept,'de')||a.name.localeCompare(b.name,'de'));const head='<tr><th>Mitarbeiter:in</th><th>Abteilung</th><th>Qualifikationen</th><th>Typ</th></tr>';const body=rows.map(r=>{const label=r.personalNumber?`${r.name} (${r.personalNumber})`:r.name;return `<tr><td>${label}</td><td>${r.dept}</td><td>${r.qualList.join(', ')}</td><td>${r.type}</td></tr>`;}).join('');els.qualPeopleTable.innerHTML=`<thead>${head}</thead><tbody>${body}</tbody>`;}}renderQualTiles(filtAll);}
 
     async function loadMeta(){
-      if(!supabaseClient){setStatus('Supabase nicht konfiguriert.',false);return;}
-      if(!HAS_SITE){setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.',false);return;}
-      const {data:years,error}=await supabaseClient.from(tableName(TABLE_EMP_BASE)).select('year').not('year','is',null).order('year');
-      if(error)throw new Error(error.message);
-      const list=[...new Set((years||[]).map(y=>y.year).filter(Boolean))];
-      const yearHtml=list.length?list.map(y=>`<option value="${y}">${y}</option>`).join(''):`<option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>`;
-      els.yearSelect.innerHTML=yearHtml;
-      if(els.chartsYearSelect)els.chartsYearSelect.innerHTML=yearHtml;
-      if(els.planYearSelect) els.planYearSelect.innerHTML = yearHtml;
-      state.year=list[0]||new Date().getFullYear();
-      els.yearSelect.value=state.year;
-      if(els.chartsYearSelect)els.chartsYearSelect.value=state.year;
-      if(els.planYearSelect) els.planYearSelect.value = state.year;
-      if(els.heroYearLabel){
-        els.heroYearLabel.textContent=state.year;
-      }
-      if(els.heroSiteLabel){
-        els.heroSiteLabel.textContent=SITE_LABEL||'-';
-      }
+      const stored = Number(sessionStorage.getItem('insights_year')||'');
+      state.year = Number.isFinite(stored) ? stored : (state.year || new Date().getFullYear());
+      if(els.heroYearLabel) els.heroYearLabel.textContent = state.year;
+      if(els.heroSiteLabel) els.heroSiteLabel.textContent = SITE_LABEL || '-';
     }
 
     function aggregateMonths(entries,deptFilter='__all__'){const months=Array(12).fill(0);entries.filter(e=>e.include!==false&&(deptFilter==='__all__'||e.dept===deptFilter)).forEach(e=>parseMonths(e.months||e.values||[]).forEach((v,i)=>months[i]+=v||0));return months;}
 
     async function loadData(){
       const activeFilter=els.qualFilter?els.qualFilter.value:'__all__';
-      if(!supabaseClient){setStatus('Supabase nicht konfiguriert.',false);return;}
-      if(!HAS_SITE){setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.',false);return;}
+      const ctx = getContextIds();
       setStatus('Lade Daten ...',true);
 
-      const {data:allEmps,error}=await supabaseClient
-        .from(tableName(TABLE_EMP_BASE))
-        .select('dept, year, personal_number, name, months, values, qual, include')
-        .eq('year',state.year);
-      if(error){setStatus(error.message||'Laden fehlgeschlagen.',false);return;}
+      const params = new URLSearchParams({ year: String(state.year || new Date().getFullYear()) });
+      if(ctx.tenantId) params.set('tenant', String(ctx.tenantId));
+      const payload = await fetchJson(`/api/stellenplan/entries?${params.toString()}`);
+      const entriesRaw = Array.isArray(payload.entries) ? payload.entries : [];
+      const years = Array.isArray(payload.years) ? payload.years.filter(Boolean) : [];
 
-      state.allEntries=(allEmps||[]).map(e=>({
+      if(!yearsReady){
+        const list = years.length ? years : [payload.year || state.year || new Date().getFullYear()];
+        const yearHtml=list.map(y=>`<option value="${y}">${y}</option>`).join('');
+        if(els.yearSelect) els.yearSelect.innerHTML=yearHtml;
+        if(els.chartsYearSelect) els.chartsYearSelect.innerHTML=yearHtml;
+        if(els.planYearSelect) els.planYearSelect.innerHTML=yearHtml;
+        yearsReady = true;
+      }
+
+      state.year = Number(payload.year || state.year || new Date().getFullYear());
+      if(els.yearSelect) els.yearSelect.value = state.year;
+      if(els.chartsYearSelect) els.chartsYearSelect.value = state.year;
+      if(els.planYearSelect) els.planYearSelect.value = state.year;
+      if(els.heroYearLabel) els.heroYearLabel.textContent = state.year;
+      const tenantLabel = payload.tenant && (payload.tenant.code || payload.tenant.name) ? (payload.tenant.code || payload.tenant.name) : (SITE_LABEL || '-');
+      if(els.heroSiteLabel) els.heroSiteLabel.textContent = tenantLabel;
+      if(els.qualSiteLabel) els.qualSiteLabel.textContent = tenantLabel;
+
+      deptIdMap = new Map();
+      (payload.departments||[]).forEach(d=>{
+        if(d.name) deptIdMap.set(d.name, d.id);
+        if(d.code) deptIdMap.set(d.code, d.id);
+      });
+
+      state.allEntries=(entriesRaw||[]).map(e=>({
         dept:e.dept,
         year:e.year,
-        personalNumber:e.personal_number||'',
+        personalNumber:e.personal_number||e.personalNumber||'',
         name:e.name||e.personal_number||'Mitarbeiter:in',
         qual:e.qual||'',
         include:e.include!==false,
         months:parseMonths(e.months??e.values??[]),
+        category:e.category,
         type:isExtraRow(e)?'Zusatz':'Mitarbeiter'
       }));
 
       const depts=Array.from(new Set(state.allEntries.map(e=>e.dept).filter(Boolean)));
       updateDeptOptions(depts);
       updateQualFilterOptions();
-      await loadPlanValues();
+      loadPlanValues(payload.plan_by_dept||{});
       renderPlanEditor(depts);
-      await loadPlanTotal();
+      loadPlanTotal(payload.plan_total);
 
       const dept=state.dept;
       const activeEntries=state.allEntries.filter(e=>e.include!==false&&(dept==='__all__'||e.dept===dept));
@@ -1869,7 +1884,13 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     function computeQualAlerts(entries){const alerts=[];const active=(entries||[]).filter(e=>e.include!==false);const by=active.reduce((acc,e)=>{(acc[e.dept]=acc[e.dept]||[]).push(e);return acc;},{});Object.entries(by).forEach(([dept,list])=>{const total=list.length||1;const count=kw=>list.filter(e=>normalizeQuals(e.qual).some(q=>q.toLowerCase().includes(kw))).length;const praxis=count('praxisanleitung');const hygiene=count('hygiene');const anae=count('anästhesie')+count('anaesthesie')+count('intensiv');const notfall=count('notfall');const qA=anae/total;const qN=notfall/total;if(praxis<=1)alerts.push(`Station ${dept}: Nur ${praxis} Praxisanleiter:in erfasst (Frühwarnung).`);if(hygiene<=2)alerts.push(`Station ${dept}: Nur ${hygiene} Hygienefachkraft/Fachkräfte erfasst (Frühwarnung).`);if(qA<0.5)alerts.push(`Station ${dept}: Fachweiterbildung Anästhesie/Intensiv unter 50% (${Math.round(qA*100)}%).`);if(qN<0.5)alerts.push(`Station ${dept}: Fachweiterbildung Notfallpflege unter 50% (${Math.round(qN*100)}%).`);});return alerts;}
 
     function syncDept(val){state.dept=val;if(els.deptSelect)els.deptSelect.value=val;if(els.chartsDeptSelect)els.chartsDeptSelect.value=val;}
-    function syncYear(val){state.year=Number(val);if(els.yearSelect)els.yearSelect.value=state.year;if(els.chartsYearSelect)els.chartsYearSelect.value=state.year;}
+    function syncYear(val){
+      state.year=Number(val);
+      if(els.yearSelect)els.yearSelect.value=state.year;
+      if(els.chartsYearSelect)els.chartsYearSelect.value=state.year;
+      if(els.planYearSelect)els.planYearSelect.value=state.year;
+      if(Number.isFinite(state.year)) sessionStorage.setItem('insights_year', String(state.year));
+    }
     function bindEvents(){
       els.deptSelect.addEventListener('change',()=>{syncDept(els.deptSelect.value);loadData().catch(err=>setStatus(err.message,false));});
       if(els.chartsDeptSelect)els.chartsDeptSelect.addEventListener('change',()=>{syncDept(els.chartsDeptSelect.value);loadData().catch(err=>setStatus(err.message,false));});
@@ -1905,7 +1926,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       initScenarioInputs();
     }
 
-    (async function init(){setActiveTab(state.currentTab||'dashboard');bindEvents();if(!supabaseClient){setStatus('Supabase nicht konfiguriert. Bitte URL/Key setzen.',false);return;}if(!HAS_SITE){setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.',false);return;}if(els.heroSiteLabel){els.heroSiteLabel.textContent=SITE_LABEL||'-';}if(els.qualSiteLabel){els.qualSiteLabel.textContent=SITE_LABEL||'-';}try{await loadMeta();await loadData();}catch(err){setStatus(err.message,false);}})();
+    (async function init(){setActiveTab(state.currentTab||'dashboard');bindEvents();if(els.heroSiteLabel){els.heroSiteLabel.textContent=SITE_LABEL||'-';}if(els.qualSiteLabel){els.qualSiteLabel.textContent=SITE_LABEL||'-';}try{await loadMeta();await loadData();}catch(err){setStatus(err.message,false);}})();
   </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
@@ -1995,7 +2016,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
 
 
-  const resolveApiBase = () => "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+  const resolveApiBase = () => (document.body?.dataset?.apiBase || "").trim();
 
   const isCrossOrigin = (url) => {
     try {

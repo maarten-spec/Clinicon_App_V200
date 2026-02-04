@@ -4,6 +4,7 @@
  *   GET  /api/stellenplan?year=YYYY
  *   POST /api/stellenplan
  *   GET  /api/stellenplan/summary?year=YYYY
+ *   GET  /api/stellenplan/entries?year=YYYY
  *   GET  /api/insights?year=YYYY&month=MM
  */
 
@@ -280,7 +281,7 @@ async function handleGetStellenplan(request, env) {
     .all();
 
   let employeeSql =
-    "SELECT id, personal_number, name, category, extra_category, qualification_id " +
+    "SELECT id, personal_number, name, category, extra_category, qualification_id, is_hidden " +
     "FROM employees WHERE is_active=1";
   const employeeParams = [];
   if (tenantId) {
@@ -372,7 +373,8 @@ async function handleGetStellenplan(request, env) {
       qualificationId: row.qualification_id || null,
       optionalQualifications: optionalMap.get(row.id) || [],
       months,
-      absences: flagsMap.get(row.id) || buildMonthArray("")
+      absences: flagsMap.get(row.id) || buildMonthArray(""),
+      isHidden: Boolean(row.is_hidden)
     };
     if (row.category === CATEGORY_EXTRA) {
       extraRows.push(payload);
@@ -414,11 +416,12 @@ async function resolveEmployeeId(db, row, category, tenantId, departmentId) {
   const name = normalizeText(row.name);
   const extraCategory = normalizeText(row.category);
   const qualificationId = row.qualificationId ? Number(row.qualificationId) : null;
+  const isHidden = row.isHidden ? 1 : 0;
 
   if (Number.isInteger(row.id)) {
     await db
       .prepare(
-        "UPDATE employees SET personal_number=?, name=?, category=?, extra_category=?, qualification_id=?, tenant_id=?, department_id=?, updated_at=datetime('now') WHERE id=?"
+        "UPDATE employees SET personal_number=?, name=?, category=?, extra_category=?, qualification_id=?, tenant_id=?, department_id=?, is_hidden=?, updated_at=datetime('now') WHERE id=?"
       )
       .bind(
         personalNumber,
@@ -428,6 +431,7 @@ async function resolveEmployeeId(db, row, category, tenantId, departmentId) {
         qualificationId,
         tenantId || null,
         departmentId || null,
+        isHidden,
         row.id
       )
       .run();
@@ -452,17 +456,17 @@ async function resolveEmployeeId(db, row, category, tenantId, departmentId) {
   if (existing && existing.id) {
     await db
       .prepare(
-        "UPDATE employees SET qualification_id=?, tenant_id=?, department_id=?, updated_at=datetime('now') WHERE id=?"
+        "UPDATE employees SET qualification_id=?, tenant_id=?, department_id=?, is_hidden=?, updated_at=datetime('now') WHERE id=?"
       )
-      .bind(qualificationId, tenantId || null, departmentId || null, existing.id)
+      .bind(qualificationId, tenantId || null, departmentId || null, isHidden, existing.id)
       .run();
     return existing.id;
   }
 
   const insert = await db
     .prepare(
-      "INSERT INTO employees (personal_number, name, category, extra_category, qualification_id, tenant_id, department_id) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO employees (personal_number, name, category, extra_category, qualification_id, tenant_id, department_id, is_hidden) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(
       personalNumber,
@@ -471,7 +475,8 @@ async function resolveEmployeeId(db, row, category, tenantId, departmentId) {
       extraCategory || null,
       qualificationId,
       tenantId || null,
-      departmentId || null
+      departmentId || null,
+      isHidden
     )
     .run();
 
@@ -757,6 +762,181 @@ async function handleGetSummary(request, env) {
     combined: { months: combinedMonths, total: sum(combinedMonths), average: avg(combinedMonths) },
     plan: { months: planMonths, total: sum(planMonths), average: avg(planMonths) },
     deviation: { months: deviationMonths, total: sum(deviationMonths), average: avg(deviationMonths) }
+  });
+}
+
+async function handleGetStellenplanEntries(request, env) {
+  const url = new URL(request.url);
+  const year = toInt(url.searchParams.get("year"), new Date().getFullYear());
+  if (!Number.isFinite(year)) {
+    return badRequest("Invalid year.");
+  }
+  const deptId = toInt(url.searchParams.get("department"), null);
+  const db = env.DB;
+  const tenantContext = await resolveTenantContext(db, request);
+  if (tenantContext.error) {
+    return unauthorized();
+  }
+  const tenantId = tenantContext.tenant ? tenantContext.tenant.id : null;
+  if (!tenantId) {
+    return badRequest("tenant_id is required.");
+  }
+
+  await ensureQualifications(db);
+  const departments = await listDepartments(db, tenantId);
+
+  const qualRows = await db.prepare("SELECT id, code, label FROM qualifications WHERE is_active=1").all();
+  const qualById = new Map();
+  for (const row of qualRows.results || []) {
+    qualById.set(row.id, {
+      code: row.code || "",
+      label: row.label || ""
+    });
+  }
+
+  const optionalRows = await db.prepare("SELECT employee_id, qualification_id FROM employee_qualifications").all();
+  const optionalMap = new Map();
+  for (const row of optionalRows.results || []) {
+    const list = optionalMap.get(row.employee_id) || [];
+    list.push(row.qualification_id);
+    optionalMap.set(row.employee_id, list);
+  }
+
+  let employeeSql =
+    "SELECT e.id, e.personal_number, e.name, e.category, e.extra_category, e.qualification_id, e.department_id, e.is_hidden, " +
+    "d.name AS dept_name, d.code AS dept_code " +
+    "FROM employees e LEFT JOIN departments d ON d.id=e.department_id WHERE e.is_active=1";
+  const employeeParams = [];
+  if (tenantId) {
+    employeeSql += " AND e.tenant_id=?";
+    employeeParams.push(tenantId);
+  }
+  if (Number.isFinite(deptId)) {
+    employeeSql += " AND e.department_id=?";
+    employeeParams.push(deptId);
+  }
+  employeeSql += " ORDER BY e.id ASC";
+  const employees = await db.prepare(employeeSql).bind(...employeeParams).all();
+
+  let monthSql = "SELECT employee_id, month, value FROM employee_month_values WHERE year=?";
+  const monthParams = [year];
+  if (tenantId) {
+    monthSql += " AND tenant_id=?";
+    monthParams.push(tenantId);
+  }
+  if (Number.isFinite(deptId)) {
+    monthSql += " AND department_id=?";
+    monthParams.push(deptId);
+  }
+  const monthValues = await db.prepare(monthSql).bind(...monthParams).all();
+
+  const valueMap = new Map();
+  for (const row of monthValues.results || []) {
+    if (!valueMap.has(row.employee_id)) {
+      valueMap.set(row.employee_id, buildMonthArray(0));
+    }
+    const months = valueMap.get(row.employee_id);
+    const index = Math.max(1, Math.min(MONTH_COUNT, Number(row.month))) - 1;
+    months[index] = normalizeNumber(row.value);
+  }
+
+  const entries = [];
+  for (const row of employees.results || []) {
+    const months = valueMap.get(row.id) || buildMonthArray(0);
+    const qualIds = new Set(optionalMap.get(row.id) || []);
+    if (row.qualification_id) {
+      qualIds.add(row.qualification_id);
+    }
+    const qualLabels = Array.from(qualIds)
+      .map((id) => qualById.get(id))
+      .filter(Boolean)
+      .map((qual) => qual.label || qual.code)
+      .filter(Boolean);
+    const deptLabel = normalizeText(row.dept_name || row.dept_code || row.extra_category || "Station");
+    entries.push({
+      dept: deptLabel,
+      dept_id: row.department_id || null,
+      year,
+      personal_number: normalizeText(row.personal_number),
+      name: normalizeText(row.name),
+      category: row.category,
+      extra_category: row.extra_category,
+      qual: qualLabels.join(", "),
+      include: row.is_hidden ? false : true,
+      months,
+      values: months
+    });
+  }
+
+  let planSql = "SELECT department_id, month, value FROM wirtschaftsplan_targets WHERE year=?";
+  const planParams = [year];
+  if (tenantId) {
+    planSql += " AND tenant_id=?";
+    planParams.push(tenantId);
+  }
+  if (Number.isFinite(deptId)) {
+    planSql += " AND department_id=?";
+    planParams.push(deptId);
+  }
+  const planRows = await db.prepare(planSql).bind(...planParams).all();
+  const planMonthsByDept = new Map();
+  for (const row of planRows.results || []) {
+    const deptKey = row.department_id || null;
+    if (!planMonthsByDept.has(deptKey)) {
+      planMonthsByDept.set(deptKey, buildMonthArray(0));
+    }
+    const months = planMonthsByDept.get(deptKey);
+    const index = Math.max(1, Math.min(MONTH_COUNT, Number(row.month))) - 1;
+    months[index] = normalizeNumber(row.value);
+  }
+
+  const planByDept = {};
+  const planLabels = new Map((departments || []).map((d) => [d.id, d.name || d.code || String(d.id)]));
+  (departments || []).forEach((dept) => {
+    const months = planMonthsByDept.get(dept.id) || buildMonthArray(0);
+    const total = months.reduce((acc, val) => acc + normalizeNumber(val), 0);
+    const avg = total / MONTH_COUNT;
+    const label = planLabels.get(dept.id);
+    if (label) {
+      planByDept[label] = avg;
+    }
+  });
+
+  const planTotal = Object.values(planByDept).reduce((acc, val) => acc + normalizeNumber(val), 0);
+
+  const yearSet = new Set();
+  const yearRows = await db
+    .prepare("SELECT DISTINCT year FROM employee_month_values WHERE tenant_id=?")
+    .bind(tenantId)
+    .all();
+  for (const row of yearRows.results || []) {
+    if (Number.isFinite(row.year)) {
+      yearSet.add(row.year);
+    }
+  }
+  const planYearRows = await db
+    .prepare("SELECT DISTINCT year FROM wirtschaftsplan_targets WHERE tenant_id=?")
+    .bind(tenantId)
+    .all();
+  for (const row of planYearRows.results || []) {
+    if (Number.isFinite(row.year)) {
+      yearSet.add(row.year);
+    }
+  }
+  const years = Array.from(yearSet).sort((a, b) => b - a);
+  if (!years.length) {
+    years.push(year);
+  }
+
+  return jsonResponse({
+    ok: true,
+    year,
+    tenant: tenantContext.tenant,
+    departments,
+    entries,
+    plan_by_dept: planByDept,
+    plan_total: planTotal,
+    years
   });
 }
 
@@ -1234,6 +1414,10 @@ export default {
 
     if (url.pathname === "/api/stellenplan/summary" && request.method === "GET") {
       return withCors(await handleGetSummary(request, env));
+    }
+
+    if (url.pathname === "/api/stellenplan/entries" && request.method === "GET") {
+      return withCors(await handleGetStellenplanEntries(request, env), request);
     }
 
     if (url.pathname === "/api/insights" && request.method === "GET") {

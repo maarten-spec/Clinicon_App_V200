@@ -121,29 +121,10 @@ table{font-size:0.95rem;}
           </div>
         </section>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    const SUPABASE_URL_STORAGE = 'clinicon_supabase_url';
-    const SUPABASE_KEY_STORAGE = 'clinicon_supabase_key';
     const MONTHS = ['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-    const KNOWN_DEPTS = ['Station 1','Station 2','Station 3','Station 4','Station 5','Station 6','Station 7','Endoskopie','OP','Sozialdienst','Pflegedienstleitung'];
-    const DEFAULT_SUPABASE_URL = 'https://fqilehnixnsujefyrdcy.supabase.co';
-    const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaWxlaG5peG5zdWplZnlyZGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MjIyNzUsImV4cCI6MjA3OTQ5ODI3NX0.Ml1J-YsID7_CXX7LbLZM4ayhWpV08FBSZc3rgVuwqt4';
-    const SUPABASE_URL = (window.SUPABASE_URL || localStorage.getItem(SUPABASE_URL_STORAGE) || DEFAULT_SUPABASE_URL).trim();
-    const SUPABASE_ANON_KEY = (window.SUPABASE_ANON_KEY || localStorage.getItem(SUPABASE_KEY_STORAGE) || DEFAULT_SUPABASE_KEY).trim();
-    const supabaseClient = (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY)
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
-    const SITE_LABEL = (sessionStorage.getItem('cliniconSite') || '').trim();
-    const SITE_CODE = SITE_LABEL.toLowerCase().replace(/[^a-z0-9_]/g,'');
-    const HAS_SITE = Boolean(SITE_CODE);
-    const tableName = (base) => SITE_CODE ? `${base}_${SITE_CODE}` : base;
-    if(!localStorage.getItem(SUPABASE_URL_STORAGE) && SUPABASE_URL){
-      try{ localStorage.setItem(SUPABASE_URL_STORAGE, SUPABASE_URL); }catch(e){ /* ignore quota issues */ }
-    }
-    if(!localStorage.getItem(SUPABASE_KEY_STORAGE) && SUPABASE_ANON_KEY){
-      try{ localStorage.setItem(SUPABASE_KEY_STORAGE, SUPABASE_ANON_KEY); }catch(e){ /* ignore quota issues */ }
-    }
+    const numberFormat = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const SITE_LABEL = (sessionStorage.getItem('tenant_code') || sessionStorage.getItem('cliniconSite') || '').trim();
 
     const els = {
       yearSelect: document.getElementById('yearSelect'),
@@ -158,72 +139,48 @@ table{font-size:0.95rem;}
     const state = {
       year: null,
       rows: [],
+      planMap: {},
+      deptIdMap: new Map(),
+      yearsReady: false
     };
-    const PARAM_TABLE = SITE_CODE ? `parameter_${SITE_CODE}` : null;
-    let planMap = {};
-    const PLAN_KEY = 'stellenplan_gesamt_plan_v1';
 
-    function loadPlanStore(){
-      try{
-        return JSON.parse(localStorage.getItem(PLAN_KEY) || '{}');
-      }catch(e){
-        return {};
+    function getApiBase(){
+      return (document.body && document.body.dataset && document.body.dataset.apiBase) ? document.body.dataset.apiBase : '';
+    }
+
+    function getContextIds(){
+      const body = document.body || {};
+      const tenantId = body.dataset?.tenantId || sessionStorage.getItem('tenant_id') || '';
+      const tenant = Number.parseInt(tenantId, 10);
+      return { tenantId: Number.isFinite(tenant) ? tenant : null };
+    }
+
+    async function fetchJson(url, options = {}){
+      const headers = { 'content-type': 'application/json', accept: 'application/json' };
+      const response = await fetch(`${getApiBase()}${url}`, {
+        headers,
+        credentials: 'same-origin',
+        ...options
+      });
+      if(!response.ok){
+        const text = await response.text();
+        throw new Error(text || `HTTP ${response.status}`);
       }
-    }
-    const planStore = loadPlanStore();
-    function savePlanStore(){
-      try{ localStorage.setItem(PLAN_KEY, JSON.stringify(planStore)); }catch(e){}
-    }
-    function planBucketKey(){
-      const site = SITE_CODE || 'default';
-      const year = state.year || new Date().getFullYear();
-      return `${site}-${year}`;
-    }
-    function getPlanValue(dept){
-      const bucket = planStore[planBucketKey()] || {};
-      return Number(bucket[dept]) || 0;
-    }
-    function setPlanValue(dept, value){
-      const key = planBucketKey();
-      if(!planStore[key]) planStore[key] = {};
-      planStore[key][dept] = value;
-      savePlanStore();
+      const contentType = response.headers.get('content-type') || '';
+      if(!contentType.includes('application/json')){
+        throw new Error(`Non-JSON response: ${contentType}`);
+      }
+      return response.json();
     }
 
     function fmt(n){
       const num = Number(n || 0);
-      return num.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+      return numberFormat.format(num);
     }
 
     function setStatus(msg, ok=true){
       els.status.textContent = msg;
       els.status.style.color = ok ? '#16a34a' : '#b91c1c';
-    }
-
-    function getPlanValue(dept){
-      return Number(planMap[dept] || 0);
-    }
-
-    async function loadPlanValues(){
-      if(!supabaseClient || !PARAM_TABLE){
-        planMap = {};
-        return;
-      }
-      const { data, error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .select('dept, wirtschaftsplan_vk')
-        .eq('year', state.year);
-      if(error){
-        setStatus(error.message, false);
-        planMap = {};
-        return;
-      }
-      planMap = {};
-      (data || []).forEach(row => {
-        if(row.dept){
-          planMap[row.dept] = Number(row.wirtschaftsplan_vk) || 0;
-        }
-      });
     }
 
     function parseMonths(arr){
@@ -236,55 +193,66 @@ table{font-size:0.95rem;}
       return Array(12).fill(0);
     }
 
-    async function loadMeta(){
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert.', false);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        return;
-      }
-      const { data: years, error } = await supabaseClient
-        .from(tableName('stellenplan_employees'))
-        .select('year')
-        .not('year', 'is', null)
-        .order('year');
-      if(error){
-        throw new Error(error.message);
-      }
-      const yearList = [...new Set((years || []).map(y=>y.year).filter(Boolean))];
-      els.yearSelect.innerHTML = yearList.length ? yearList.map(y=>`<option value="${y}">${y}</option>`).join('') : `<option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>`;
-      state.year = yearList[0] || new Date().getFullYear();
-      els.yearSelect.value = state.year;
-      if(els.siteLabel) els.siteLabel.textContent = SITE_LABEL || '-';
-      if(els.heroYear) els.heroYear.textContent = state.year;
+    function buildDeptOrder(departments){
+      const order = [];
+      const seen = new Set();
+      state.deptIdMap = new Map();
+      (departments || []).forEach(d=>{
+        const label = d.name || d.code || String(d.id);
+        if(d.name) state.deptIdMap.set(d.name, d.id);
+        if(d.code) state.deptIdMap.set(d.code, d.id);
+        if(label && !seen.has(label)){
+          seen.add(label);
+          order.push(label);
+        }
+      });
+      return order;
     }
 
-    function aggregate(emps){
+    function aggregate(entries, deptOrder){
       const map = new Map();
       const ensure = (dept) => {
         if(!map.has(dept)){
-          map.set(dept, {
-            dept,
-            empCount:0,
-            months:Array(12).fill(0)
-          });
+          map.set(dept, { dept, empCount:0, months:Array(12).fill(0) });
         }
         return map.get(dept);
       };
-      KNOWN_DEPTS.forEach(ensure);
-      emps.forEach(e => {
-        const target = ensure(e.dept);
+      (deptOrder || []).forEach(ensure);
+      (entries || []).filter(e=>e.include!==false).forEach(e=>{
+        const dept = (e.dept || e.extra_category || 'Station').trim() || 'Station';
+        const target = ensure(dept);
         target.empCount += 1;
         const months = parseMonths(e.months ?? e.values);
-        months.forEach((v,i) => target.months[i] += Number(v)||0);
+        months.forEach((v,i)=> target.months[i]+=Number(v)||0);
       });
-
       const ordered = [];
-      KNOWN_DEPTS.forEach(d => { if(map.has(d)) ordered.push(map.get(d)); });
-      map.forEach((val, key) => { if(!KNOWN_DEPTS.includes(key)) ordered.push(val); });
+      (deptOrder || []).forEach(d=>{ if(map.has(d)) ordered.push(map.get(d)); });
+      map.forEach((val,key)=>{ if(!(deptOrder || []).includes(key)) ordered.push(val); });
       return ordered;
+    }
+
+    function getPlanValue(dept){
+      return Number(state.planMap[dept] || 0);
+    }
+
+    function loadPlanValues(planByDept){
+      state.planMap = planByDept || {};
+    }
+
+    async function setPlanValueDb(dept, value){
+      const deptId = state.deptIdMap.get(dept);
+      const ctx = getContextIds();
+      if(!deptId || !ctx.tenantId) return;
+      const months = new Array(12).fill(Number(value)||0);
+      const payload = {
+        year: state.year,
+        employees: [],
+        extras: [],
+        planTargets: { months },
+        tenantId: ctx.tenantId,
+        departmentId: deptId
+      };
+      await fetchJson('/api/stellenplan', { method:'POST', body: JSON.stringify(payload) });
     }
 
     function renderTable(rows){
@@ -302,15 +270,16 @@ table{font-size:0.95rem;}
         <th class="num">Abweichung</th>
         <th class="num">Koepfe</th>
       </tr>`;
-      const body = safeRows.map(r => {
+      const body = safeRows.map(r=>{
         const total = r.months.reduce((a,b)=>a+b,0);
         const avgYear = total/12;
         const plan = getPlanValue(r.dept);
         const delta = avgYear - plan;
         const deltaClass = delta >= 0 ? 'delta-pos' : 'delta-neg';
+        const safeDept = String(r.dept || '').replace(/"/g,'&quot;');
         return `<tr>
           <td>${r.dept}</td>
-          <td class="num">${fmt(plan)}</td>
+          <td class="num"><input class="plan-input" type="number" step="0.01" data-plan-dept="${safeDept}" value="${plan.toFixed(2)}" /></td>
           ${r.months.map(v=>`<td class="num">${fmt(v)}</td>`).join('')}
           <td class="num">${fmt(avgYear)}</td>
           <td class="num ${deltaClass}">${fmt(delta)}</td>
@@ -340,53 +309,58 @@ table{font-size:0.95rem;}
     }
 
     async function loadData(){
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert.', false);
-        renderTable([]);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        renderTable([]);
-        return;
-      }
       setStatus('Lade Daten ...', true);
-      await loadPlanValues();
-      const { data: emps, error: empErr } = await supabaseClient
-        .from(tableName('stellenplan_employees'))
-        .select('dept, year, personal_number, months, values')
-        .eq('year', state.year);
-      if(empErr){
-        throw new Error(empErr.message || 'Laden fehlgeschlagen.');
+      const ctx = getContextIds();
+      const params = new URLSearchParams({ year: String(state.year || new Date().getFullYear()) });
+      if(ctx.tenantId) params.set('tenant', String(ctx.tenantId));
+      const payload = await fetchJson(`/api/stellenplan/entries?${params.toString()}`);
+      const entries = Array.isArray(payload.entries) ? payload.entries : [];
+      const years = Array.isArray(payload.years) ? payload.years.filter(Boolean) : [];
+      if(!state.yearsReady){
+        const list = years.length ? years : [payload.year || new Date().getFullYear()];
+        els.yearSelect.innerHTML = list.map(y=>`<option value="${y}">${y}</option>`).join('');
+        state.yearsReady = true;
       }
-      const rows = aggregate(emps || []);
+      state.year = Number(payload.year || state.year || new Date().getFullYear());
+      els.yearSelect.value = state.year;
+      if(els.heroYear) els.heroYear.textContent = state.year;
+      const tenantLabel = payload.tenant && (payload.tenant.code || payload.tenant.name)
+        ? (payload.tenant.code || payload.tenant.name)
+        : (SITE_LABEL || '-');
+      if(els.siteLabel) els.siteLabel.textContent = tenantLabel;
+      const deptOrder = buildDeptOrder(payload.departments || []);
+      loadPlanValues(payload.plan_by_dept || {});
+      const rows = aggregate(entries, deptOrder);
       state.rows = rows;
       renderTable(rows);
       setStatus('Fertig.');
     }
 
     function bindEvents(){
-      els.yearSelect.addEventListener('change', () => {
+      els.yearSelect.addEventListener('change', ()=>{
         state.year = Number(els.yearSelect.value);
         if(els.heroYear) els.heroYear.textContent = state.year;
+        loadData().catch(err=>setStatus(err.message, false));
       });
-      els.btnRefresh.addEventListener('click', () => {
-        loadData().catch(err => setStatus(err.message, false));
+      els.btnRefresh.addEventListener('click', ()=>{
+        loadData().catch(err=>setStatus(err.message, false));
+      });
+      els.deptTable.addEventListener('change', event=>{
+        const target = event.target;
+        if(!(target instanceof HTMLInputElement)) return;
+        if(!target.dataset.planDept) return;
+        const dept = target.dataset.planDept || '';
+        const val = parseFloat(target.value);
+        const num = Number.isFinite(val) ? val : 0;
+        state.planMap[dept] = num;
+        setPlanValueDb(dept, num).catch(err=>setStatus(err.message, false));
+        renderTable(state.rows);
       });
     }
 
     (async function init(){
       bindEvents();
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert. Bitte URL/Key setzen (localStorage clinicon_supabase_url / clinicon_supabase_key).', false);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        return;
-      }
       try{
-        await loadMeta();
         await loadData();
       }catch(err){
         setStatus(err.message, false);

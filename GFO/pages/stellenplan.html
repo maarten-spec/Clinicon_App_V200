@@ -127,7 +127,7 @@
       border-radius:13px;
     }
     th, td{
-      padding:12px 10px;
+      padding:7px 6px;
       border-bottom:1px solid var(--border);
       text-align:left;
       vertical-align:middle;
@@ -152,20 +152,20 @@
     }
     .cell-input{
       width:100%;
-      padding:8px 10px;
+      padding:4px 6px;
       border-radius:10px;
       border:1px solid var(--border);
       background:#fff;
       font:inherit;
       box-sizing:border-box;
-      height:36px;
+      height:28px;
       margin:0;
     }
     .cell-input-number{
       text-align:center;
       width:calc(100% - 4px);
-      height:36px;
-      padding:6px 8px;
+      height:28px;
+      padding:3px 4px;
       box-sizing:border-box;
       margin:0 4px 0 0;
     }
@@ -240,13 +240,13 @@
     }
     .cell-select{
       width:100%;
-      padding:8px 10px;
+      padding:6px 8px;
       border-radius:10px;
       border:1px solid var(--border);
       background:#fff;
       font:inherit;
       box-sizing:border-box;
-      height:36px;
+      height:32px;
       margin:0;
     }
     .qual-wrap{
@@ -272,7 +272,7 @@
       cursor:pointer;
       text-align:left;
       box-sizing:border-box;
-      min-height:75px;
+      min-height:52px;
     }
     .multi-label{
       font-size:0.8rem;
@@ -318,7 +318,7 @@
       display:inline-flex;
     }
     .row-hidden .col-name{
-      padding-bottom:28px;
+      padding-bottom:22px;
     }
     .multi-caret{
       margin-left:auto;
@@ -413,6 +413,11 @@
     .multi-option.required{
       color:#b91c1c;
       font-weight:700;
+    }
+    .multi-option.required.no-frame{
+      border:none;
+      background:transparent;
+      padding:0;
     }
     .multi-option.required input{
       accent-color:#ef4444;

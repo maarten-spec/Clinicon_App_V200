@@ -245,7 +245,8 @@ function serializeRows(rows, type) {
     qualificationId: row.optionalQualifications && row.optionalQualifications.length ? row.optionalQualifications[0] : null,
     optionalQualifications: Array.isArray(row.optionalQualifications) ? row.optionalQualifications : [],
     months: row.months.map((value) => normalizeNumber(value)),
-    absences: Array.isArray(row.absences) ? row.absences.map(normalizeAbsenceCode) : buildEmptyMonths().map(() => "")
+    absences: Array.isArray(row.absences) ? row.absences.map(normalizeAbsenceCode) : buildEmptyMonths().map(() => ""),
+    isHidden: Boolean(row.isHidden)
   }));
 }
 
@@ -300,6 +301,18 @@ function isRequiredQualification(qual) {
   const label = String(qual.label || "").toLowerCase();
   if (code.startsWith("REQ_")) return true;
   return label === "pflegefachkraft" || label === "pflegefachassistenz" || label === "ungelernte kraft";
+}
+
+function isNoFrameQualification(qual) {
+  const label = String(qual.label || "").toLowerCase().trim();
+  const key = label.replace(/[^a-z0-9]+/g, "");
+  return (
+    key === "mfa" ||
+    key === "pflegefachassistenz" ||
+    key === "pflegefachkraft" ||
+    key === "ungelerntkraft" ||
+    key === "ungelerntekraft"
+  );
 }
 
 function renderQualificationOptions(selectedId) {
@@ -403,11 +416,13 @@ function renderOptionalQualificationOptions(selectedIds, rowUid) {
     else if (isRequiredQualification(qual)) group = "Pflichtqualifikationen";
     const checked = selectedSet.has(String(qual.id)) ? " checked" : "";
     const required = isRequiredQualification(qual);
+    const noFrame = required && isNoFrameQualification(qual);
     const requiredClass = required ? " required" : "";
+    const noFrameClass = noFrame ? " no-frame" : "";
     const inputType = required ? "radio" : "checkbox";
     const nameAttr = required ? ` name="req-${rowUid}" data-qual-required="1"` : "";
     optionsByGroup[group].push(
-      `<label class="multi-option${requiredClass}"><input type="${inputType}" data-qual-id="${qual.id}"${nameAttr}${checked}>${label}</label>`
+      `<label class="multi-option${requiredClass}${noFrameClass}"><input type="${inputType}" data-qual-id="${qual.id}"${nameAttr}${checked}>${label}</label>`
     );
   });
 
