@@ -789,6 +789,21 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
               <label>Station / Abteilung
                 <select id="insightsDeptSelect">
                   <option value="">Gesamtes Haus</option>
+                  <option value="Station 1">Station 1</option>
+                  <option value="Station 2">Station 2</option>
+                  <option value="Station 3">Station 3</option>
+                  <option value="Station 4">Station 4</option>
+                  <option value="Station 5">Station 5</option>
+                  <option value="Station 6">Station 6</option>
+                  <option value="Station 7">Station 7</option>
+                  <option value="Station 8">Station 8</option>
+                  <option value="EKG">EKG</option>
+                  <option value="OP">OP</option>
+                  <option value="ZNA">ZNA</option>
+                  <option value="Intensivstation">Intensivstation</option>
+                  <option value="Endoskopie">Endoskopie</option>
+                  <option value="Radiologie">Radiologie</option>
+                  <option value="Labor">Labor</option>
                 </select>
               </label>
               <label>Jahr
@@ -1995,7 +2010,12 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
 
 
-  const resolveApiBase = () => "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+  const resolveApiBase = () => {
+    const base = (document.body?.dataset?.apiBase || "").trim();
+    if (base) return base.replace(/\/$/, "");
+    if (location && location.origin && !location.origin.startsWith("file:")) return "";
+    return "https://clinicon-stellenplan.maarten-koomen.workers.dev";
+  };
 
   const isCrossOrigin = (url) => {
     try {
@@ -2702,6 +2722,8 @@ function renderQualSection(agg, data) {
     let deptTries = 0;
     const populateDepartments = async () => {
       if (!deptSelect) return;
+      const previousLabel = (deptSelect.options[deptSelect.selectedIndex]?.textContent || "").trim();
+      const previousValue = (deptSelect.value || "").trim();
       const apiBase = resolveApiBase();
       const params = new URLSearchParams();
       let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
@@ -2740,6 +2762,9 @@ function renderQualSection(agg, data) {
         }
         const payload = await response.json();
         const normalizedDepartments = payload && Array.isArray(payload.departments) ? payload.departments : [];
+        if (!normalizedDepartments.length) {
+          return;
+        }
         const current = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
         deptSelect.innerHTML = '<option value="">Gesamtes Haus</option>';
         normalizedDepartments.forEach((dept) => {
@@ -2752,18 +2777,32 @@ function renderQualSection(agg, data) {
           deptSelect.appendChild(option);
         });
         const optionValues = normalizedDepartments.map((dept) => String(dept.id));
-        if (current && !optionValues.includes(String(current))) {
+        let selectedId = "";
+        if (current && optionValues.includes(String(current))) {
+          selectedId = String(current);
+        } else {
+          const desiredLabel = (previousLabel || previousValue || String(current || "")).trim();
+          if (desiredLabel) {
+            const match = normalizedDepartments.find(
+              (dept) => String(dept.name || dept.code || "").trim() === desiredLabel
+            );
+            if (match) selectedId = String(match.id);
+          }
+        }
+        if (selectedId) {
+          deptSelect.value = selectedId;
+          sessionStorage.setItem("department_id", selectedId);
+          document.body.dataset.departmentId = selectedId;
+        } else if (current && !optionValues.includes(String(current))) {
           deptSelect.value = "";
           sessionStorage.removeItem("department_id");
           delete document.body.dataset.departmentId;
-        } else if (deptSelect.value) {
-          document.body.dataset.departmentId = String(deptSelect.value);
         }
         if (typeof window.__loadInsights === "function") {
           window.__loadInsights();
         }
       } catch (err) {
-        // keep default option only
+        // keep current options
       }
     };
 
