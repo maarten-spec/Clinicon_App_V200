@@ -2045,6 +2045,34 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
   };
 
   const formatPercent = (value) => `${fmtNumber.format(value)}%`;
+  const normalizeKey = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  let cachedDepartments = null;
+  let cachedDepartmentsPromise = null;
+  const fetchDepartments = async () => {
+    if (Array.isArray(cachedDepartments)) return cachedDepartments;
+    if (cachedDepartmentsPromise) return cachedDepartmentsPromise;
+    cachedDepartmentsPromise = (async () => {
+      const apiBase = window.resolveApiBase ? window.resolveApiBase() : resolveApiBase();
+      const params = new URLSearchParams();
+      const tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
+      if (tenantId) params.set("tenant", tenantId);
+      const endpoint = apiBase.replace(/\/$/, "") + "/api/departments" + (params.toString() ? `?${params.toString()}` : "");
+      const headers = { Accept: "application/json" };
+      const deptEmail = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
+      if (deptEmail) headers["x-user-email"] = deptEmail;
+      const creds = isCrossOrigin(endpoint) ? "omit" : "same-origin";
+      const response = await fetch(endpoint, { headers, credentials: creds });
+      if (!response.ok) {
+        cachedDepartments = [];
+        return cachedDepartments;
+      }
+      const payload = await response.json();
+      cachedDepartments = payload && Array.isArray(payload.departments) ? payload.departments : [];
+      return cachedDepartments;
+    })();
+    return cachedDepartmentsPromise;
+  };
 
   function buildStationMetrics(row) {
     const stationName = row.station || row.name || "Station";
@@ -2065,6 +2093,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       elternzeit,
       kol
     };
+  }
+
+  function buildMixCounts(stations) {
+    const counts = {};
+    (stations || []).forEach((row) => {
+      const label = String(row.qual_mix_label || row.qual_mix || row.qualMix || row.mix_label || "").trim();
+      if (!label) return;
+      const weight = normalizeNumber(
+        row.ist_vza ?? row.vk_ist ?? row.beds_occupied ?? row.staffed_hours ?? row.ist ?? 1
+      );
+      const value = weight > 0 ? weight : 1;
+      counts[label] = (counts[label] || 0) + value;
+    });
+    return counts;
   }
 
   function aggregateStations(stations) {
@@ -2424,15 +2466,16 @@ function renderQualSection(agg, data) {
       const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
       const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
       const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+      const sollwert = lastTrend ? normalizeNumber(lastTrend.sollwert_hours) : 0;
       const diff = ist - soll;
       charts.shift = new Chart(shiftCtx, {
         type: "pie",
         data: {
-          labels: ["SOLL VK", "IST VK", "Differenz"],
+          labels: ["SOLL VK", "IST VK", "Differenz", "SOLL-Berechnung"],
           datasets: [
             {
-              data: [soll, ist, Math.abs(diff)],
-              backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.accent4],
+              data: [soll, ist, Math.abs(diff), sollwert],
+              backgroundColor: [chartColors.accent, chartColors.accent2, chartColors.accent4, chartColors.danger],
               borderWidth: 0
             }
           ]
@@ -2510,9 +2553,10 @@ function renderQualSection(agg, data) {
         const lastTrend = data.trend && data.trend.length ? data.trend[data.trend.length - 1] : null;
         const soll = lastTrend ? normalizeNumber(lastTrend.required_hours) : 0;
         const ist = lastTrend ? normalizeNumber(lastTrend.staffed_hours) : 0;
+        const sollwert = lastTrend ? normalizeNumber(lastTrend.sollwert_hours) : 0;
         const diff = ist - soll;
-        charts.shift.data.labels = ["SOLL VK", "IST VK", "Differenz"];
-        charts.shift.data.datasets[0].data = [soll, ist, Math.abs(diff)];
+        charts.shift.data.labels = ["SOLL VK", "IST VK", "Differenz", "SOLL-Berechnung"];
+        charts.shift.data.datasets[0].data = [soll, ist, Math.abs(diff), sollwert];
         charts.shift.update();
       }
     }
@@ -2614,8 +2658,27 @@ function renderQualSection(agg, data) {
       let departmentId = document.body.dataset.departmentId || sessionStorage.getItem("department_id") || "";
       if (deptSelect && departmentId) {
         const optionValues = Array.from(deptSelect.options || []).map((opt) => String(opt.value));
-        if (optionValues.length > 1 && !optionValues.includes(String(departmentId))) {
+        const hasNumericValues = optionValues.some((value) => /^\d+$/.test(value));
+        if (hasNumericValues && optionValues.length > 1 && !optionValues.includes(String(departmentId))) {
           departmentId = "";
+        }
+      }
+      if (deptSelect && !departmentId) {
+        const selectedValue = String(deptSelect.value || "").trim();
+        const selectedLabel = (deptSelect.options[deptSelect.selectedIndex]?.textContent || "").trim();
+        if (selectedValue && selectedValue !== "" && selectedLabel && selectedLabel !== "Gesamtes Haus") {
+          const departments = await fetchDepartments();
+          const match = (departments || []).find((dept) => {
+            const nameKey = normalizeKey(dept.name || "");
+            const codeKey = normalizeKey(dept.code || "");
+            return nameKey === normalizeKey(selectedLabel) || codeKey === normalizeKey(selectedLabel);
+          });
+          if (match && match.id) {
+            departmentId = String(match.id);
+            sessionStorage.setItem("department_id", departmentId);
+            document.body.dataset.departmentId = departmentId;
+            if (deptSelect) deptSelect.value = departmentId;
+          }
         }
       }
       params.set("year", String(year));
