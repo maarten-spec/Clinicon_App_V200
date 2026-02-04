@@ -2625,18 +2625,26 @@ function renderQualSection(agg, data) {
         const emailHeader = (await ensureAccessEmail()) || (sessionStorage.getItem("user_email") || "").trim() || getEmailFromPill();
         if (emailHeader) sessionStorage.setItem("user_email", emailHeader);
         const headers = { Accept: "application/json" };
-        if (isCrossOrigin(endpoint) && emailHeader) headers["x-user-email"] = emailHeader;
+        if (emailHeader) headers["x-user-email"] = emailHeader;
         if (isCrossOrigin(endpoint) && !emailHeader) {
           if (elements.dataNote) {
             elements.dataNote.textContent = "Insights warten auf Login-Email ...";
+          }
+          if (elements.insightsDebug) {
+            elements.insightsDebug.textContent = "Insights warten auf Login-Email ...";
           }
           setTimeout(() => loadInsights(), 300);
           return;
         }
         const creds = isCrossOrigin(endpoint) ? "omit" : "include";
+        if (elements.insightsDebug) {
+          elements.insightsDebug.textContent = `Lade Insights von ${endpoint}`;
+        }
         const response = await fetch(endpoint, { headers, credentials: creds, cache: "no-store" });
         if (!response.ok) {
-          throw new Error(`API error ${response.status}`);
+          let errorText = "";
+          try { errorText = await response.text(); } catch {}
+          throw new Error(`API error ${response.status}${errorText ? `: ${errorText}` : ""}`);
         }
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
@@ -2670,11 +2678,17 @@ function renderQualSection(agg, data) {
           const sourceLabel = safePayload.meta && safePayload.meta.source ? safePayload.meta.source : 'd1';
           elements.dataNote.textContent = `Datenquelle: ${sourceLabel} | Stationen: ${safePayload.stations.length} | IST Summe: ${fmtNumber.format(istSum)} VZ?`;
         }
+        if (elements.insightsDebug) {
+          elements.insightsDebug.textContent = "";
+        }
         applyData(safePayload);
       } catch (err) {
         applyData(emptyData);
         if (elements.dataNote) {
           elements.dataNote.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}`;
+        }
+        if (elements.insightsDebug) {
+          elements.insightsDebug.textContent = `Insights-Fehler: ${err && err.message ? err.message : err}\nEndpoint: ${endpoint}`;
         }
       }
     }
