@@ -127,6 +127,25 @@ function getContextIds() {
   };
 }
 
+async function ensureDepartmentId() {
+  const ctx = getContextIds();
+  if (ctx.departmentId) return ctx.departmentId;
+  if (!ctx.tenantId) return null;
+  try {
+    const data = await fetchJson(`/api/departments?tenant=${ctx.tenantId}`);
+    const departments = Array.isArray(data?.departments) ? data.departments : [];
+    if (!departments.length) return null;
+    const first = departments[0];
+    const nextId = Number.parseInt(first.id, 10);
+    if (!Number.isFinite(nextId)) return null;
+    sessionStorage.setItem("department_id", String(nextId));
+    document.body.dataset.departmentId = String(nextId);
+    return nextId;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchJson(url, options = {}) {
   const headers = { "content-type": "application/json" };
   const response = await fetch(`${getApiBase()}${url}`, {
@@ -145,9 +164,16 @@ async function loadPlan(year) {
   const context = getContextIds();
   state.tenantId = context.tenantId;
   state.departmentId = context.departmentId;
+  if (!state.departmentId) {
+    state.departmentId = await ensureDepartmentId();
+  }
+  if (!state.departmentId) {
+    setStatus("Abteilung fehlt (department_id).", true);
+    return;
+  }
   const params = new URLSearchParams({ year: String(year) });
   if (context.tenantId) params.set("tenant", String(context.tenantId));
-  if (context.departmentId) params.set("department", String(context.departmentId));
+  if (state.departmentId) params.set("department", String(state.departmentId));
   const data = await fetchJson(`/api/stellenplan?${params.toString()}`);
   state.year = data.year || year;
   if (data.tenant && data.tenant.id) {
@@ -178,7 +204,8 @@ async function loadSollwert(year) {
   const context = getContextIds();
   const params = new URLSearchParams({ year: String(year) });
   if (context.tenantId) params.set("tenant", String(context.tenantId));
-  if (context.departmentId) params.set("department", String(context.departmentId));
+  const departmentId = context.departmentId || state.departmentId;
+  if (departmentId) params.set("department", String(departmentId));
   try {
     const data = await fetchJson(`/api/stellenplan/sollwert?${params.toString()}`);
     if (data && data.ok) {
