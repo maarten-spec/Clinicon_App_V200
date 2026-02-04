@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Clinicon - Erfassung Stationsdaten</title>
+  <title>Clinicon - Erfassung Betten</title>
   <style id="page-style">
 .page-wrap{
       padding:28px;
@@ -162,11 +162,11 @@
   <template id="page-content">
 <section class=\"hero\">
       <div>
-        <h2>Erfassung Stationsdaten</h2>
-        <p>Standardisierte Eingabe fuer Stationsdaten und Statusmeldungen.</p>
+        <h2>Erfassung Betten &amp; Auslastung</h2>
+        <p>Erfasse tagesaktuell Belegung, freie Kapazitaeten und Isolationsbetten pro Station.</p>
         <div class=\"pill-row\">
-          <span class=\"pill\">Modus: Station</span>
-          <span class=\"pill alt\">Quelle: Intern</span>
+          <span class=\"pill\">Modus: Betten</span>
+          <span class=\"pill alt\">Quelle: Station</span>
         </div>
       </div>
       <div class=\"hero-cards\">
@@ -186,8 +186,8 @@
     </section>
     <section class=\"card\">
       <div class=\"card-header\">
-        <h3>Erfassungsformular</h3>
-        <span class=\"card-sub\">Eingabe</span>
+        <h3>Betten erfassen</h3>
+        <span class=\"card-sub\">Tageswerte</span>
       </div>
       <div class=\"form-grid\" style=\"margin-top:12px;\">
         <label>Station
@@ -200,18 +200,20 @@
         <label>Datum
           <input type=\"date\" />
         </label>
-        <label>Belegte Betten
+        <label>Betten gesamt
           <input type=\"number\" min=\"0\" placeholder=\"z. B. 24\" />
         </label>
-        <label>PPUG Status
-          <select>
-            <option>OK</option>
-            <option>Warnung</option>
-            <option>Risiko</option>
-          </select>
+        <label>Belegte Betten
+          <input type=\"number\" min=\"0\" placeholder=\"z. B. 21\" />
+        </label>
+        <label>Freie Betten
+          <input type=\"number\" min=\"0\" placeholder=\"z. B. 3\" />
+        </label>
+        <label>Isolationsbetten
+          <input type=\"number\" min=\"0\" placeholder=\"z. B. 2\" />
         </label>
         <label>Bemerkung
-          <textarea placeholder=\"Hinweise fuer die Station...\"></textarea>
+          <textarea placeholder=\"Hinweise zur Auslastung...\"></textarea>
         </label>
       </div>
       <div class=\"btn-row\">
@@ -222,12 +224,12 @@
     <section class=\"card\">
       <div class=\"card-header\">
         <h3>Letzte Eingaben</h3>
-        <span class=\"card-sub\">Aktuell</span>
+        <span class=\"card-sub\">Letzte 24h</span>
       </div>
       <div class=\"status-list\">
-        <div class=\"status-item\"><span>ITS</span><span class=\"status-pill status-ok\">OK</span></div>
-        <div class=\"status-item\"><span>IMC</span><span class=\"status-pill status-warn\">Warnung</span></div>
-        <div class=\"status-item\"><span>Chirurgie</span><span class=\"status-pill status-ok\">OK</span></div>
+        <div class=\"status-item\"><span>ITS</span><span class=\"status-pill status-ok\">21/24 belegt</span></div>
+        <div class=\"status-item\"><span>IMC</span><span class=\"status-pill status-warn\">9/12 belegt</span></div>
+        <div class=\"status-item\"><span>Chirurgie</span><span class=\"status-pill status-ok\">18/20 belegt</span></div>
       </div>
     </section>
   </template>

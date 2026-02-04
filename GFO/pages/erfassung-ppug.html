@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Clinicon - Erfassung Stationsdaten</title>
+  <title>Clinicon - Erfassung PPUG</title>
   <style id="page-style">
 .page-wrap{
       padding:28px;
@@ -162,11 +162,11 @@
   <template id="page-content">
 <section class=\"hero\">
       <div>
-        <h2>Erfassung Stationsdaten</h2>
-        <p>Standardisierte Eingabe fuer Stationsdaten und Statusmeldungen.</p>
+        <h2>Erfassung PPUG / Untergrenzen</h2>
+        <p>Dokumentiere PPUG-Status, Verhaeltnisse und Risiken pro Station.</p>
         <div class=\"pill-row\">
-          <span class=\"pill\">Modus: Station</span>
-          <span class=\"pill alt\">Quelle: Intern</span>
+          <span class=\"pill\">Modus: PPUG</span>
+          <span class=\"pill alt\">Quelle: Pflege</span>
         </div>
       </div>
       <div class=\"hero-cards\">
@@ -186,8 +186,8 @@
     </section>
     <section class=\"card\">
       <div class=\"card-header\">
-        <h3>Erfassungsformular</h3>
-        <span class=\"card-sub\">Eingabe</span>
+        <h3>PPUG erfassen</h3>
+        <span class=\"card-sub\">Status &amp; Ratio</span>
       </div>
       <div class=\"form-grid\" style=\"margin-top:12px;\">
         <label>Station
@@ -200,9 +200,6 @@
         <label>Datum
           <input type=\"date\" />
         </label>
-        <label>Belegte Betten
-          <input type=\"number\" min=\"0\" placeholder=\"z. B. 24\" />
-        </label>
         <label>PPUG Status
           <select>
             <option>OK</option>
@@ -210,8 +207,17 @@
             <option>Risiko</option>
           </select>
         </label>
+        <label>Ratio Ist
+          <input type=\"number\" step=\"0.01\" placeholder=\"z. B. 1.4\" />
+        </label>
+        <label>Ratio Soll
+          <input type=\"number\" step=\"0.01\" placeholder=\"z. B. 1.2\" />
+        </label>
+        <label>Risiko Hinweis
+          <input type=\"text\" placeholder=\"z. B. Unterbesetzung Spat\" />
+        </label>
         <label>Bemerkung
-          <textarea placeholder=\"Hinweise fuer die Station...\"></textarea>
+          <textarea placeholder=\"Hinweise zur PPUG Lage...\"></textarea>
         </label>
       </div>
       <div class=\"btn-row\">
@@ -222,12 +228,12 @@
     <section class=\"card\">
       <div class=\"card-header\">
         <h3>Letzte Eingaben</h3>
-        <span class=\"card-sub\">Aktuell</span>
+        <span class=\"card-sub\">Letzte 24h</span>
       </div>
       <div class=\"status-list\">
-        <div class=\"status-item\"><span>ITS</span><span class=\"status-pill status-ok\">OK</span></div>
-        <div class=\"status-item\"><span>IMC</span><span class=\"status-pill status-warn\">Warnung</span></div>
-        <div class=\"status-item\"><span>Chirurgie</span><span class=\"status-pill status-ok\">OK</span></div>
+        <div class=\"status-item\"><span>ITS</span><span class=\"status-pill status-ok\">OK (1.3/1.2)</span></div>
+        <div class=\"status-item\"><span>IMC</span><span class=\"status-pill status-warn\">Warnung (1.6/1.2)</span></div>
+        <div class=\"status-item\"><span>Chirurgie</span><span class=\"status-pill status-ok\">OK (1.1/1.2)</span></div>
       </div>
     </section>
   </template>

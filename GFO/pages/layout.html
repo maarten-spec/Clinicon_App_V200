@@ -140,6 +140,82 @@
       flex-shrink:0;
       box-shadow:inset 0 0 0 1px rgba(76,156,255,0.12);
     }
+  .nav-group{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .nav-toggle{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    text-decoration:none;
+    color:var(--ink);
+    padding:12px 14px;
+    border-radius:var(--radius-sm);
+    border:1px solid transparent;
+    background:linear-gradient(180deg, #ffffff, #f7f9ff);
+    box-shadow:0 1px 0 rgba(14,20,43,0.05);
+    font-size:0.98rem;
+    line-height:1.2;
+    font-weight:500;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    cursor:pointer;
+    width:100%;
+  }
+  .nav-toggle:hover{
+    transform:translateY(-1px);
+    border-color:rgba(28,107,255,0.25);
+    box-shadow:0 10px 20px rgba(28,107,255,0.15);
+  }
+  .nav-toggle svg{
+    width:28px;
+    height:28px;
+    padding:8px;
+    border-radius:14px;
+    background:linear-gradient(140deg, rgba(76,156,255,0.22), rgba(23,195,178,0.18));
+    color:#1f4b82;
+    flex-shrink:0;
+    box-shadow:inset 0 0 0 1px rgba(76,156,255,0.12);
+  }
+  .nav-caret{
+    margin-left:auto;
+    width:16px;
+    height:16px;
+    color:#64748b;
+    transition:transform .2s ease;
+  }
+  .nav-toggle[aria-expanded="true"] .nav-caret{
+    transform:rotate(180deg);
+  }
+  .nav-sub{
+    display:none;
+    flex-direction:column;
+    gap:6px;
+    padding-left:18px;
+  }
+  .nav-sub.open{
+    display:flex;
+  }
+  .nav-sub a{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    text-decoration:none;
+    color:var(--ink);
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid rgba(15,23,42,0.08);
+    background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,249,255,0.96));
+    box-shadow:0 8px 16px rgba(15,23,42,0.04);
+    font-size:0.92rem;
+  }
+  .nav-sub a.active{
+    background:linear-gradient(135deg, var(--accent), #458cff);
+    color:#fff;
+    border-color:transparent;
+    box-shadow:0 12px 24px rgba(28,107,255,0.25);
+  }
   .side-footer{
     margin-top:auto;
     font-size:12px;
@@ -174,6 +250,120 @@
     align-items:center;
     gap:10px;
     flex-wrap:wrap;
+  }
+  .topbar-fields{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .user-menu-wrap{
+    position:relative;
+  }
+  .user-menu-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 8px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:#fff;
+    cursor:pointer;
+    box-shadow:var(--shadow-soft);
+    font-family:var(--font-base);
+  }
+  .user-avatar{
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    background:linear-gradient(135deg, rgba(28,107,255,0.18), rgba(23,195,178,0.2));
+    border:1px solid rgba(28,107,255,0.2);
+  }
+  .user-text{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    text-align:left;
+    min-width:140px;
+  }
+  .user-name{
+    font-size:0.9rem;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .user-meta{
+    font-size:0.75rem;
+    color:var(--muted);
+  }
+  .user-caret{
+    width:16px;
+    height:16px;
+    color:var(--muted);
+  }
+  .user-menu{
+    position:absolute;
+    top:calc(100% + 8px);
+    right:0;
+    min-width:220px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 18px 34px rgba(15,23,42,0.16);
+    padding:10px;
+    display:none;
+    z-index:10;
+  }
+  .user-menu.open{
+    display:block;
+  }
+  .user-menu-head{
+    padding:6px 8px 10px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .user-menu-name{
+    font-weight:700;
+    font-size:0.95rem;
+  }
+  .user-menu-email,
+  .user-menu-tenant,
+  .user-menu-dept{
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+  .user-menu-links{
+    padding:8px 4px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .user-menu-links a{
+    text-decoration:none;
+    color:var(--ink);
+    padding:6px 8px;
+    border-radius:10px;
+    font-size:0.86rem;
+  }
+  .user-menu-links a:hover{
+    background:var(--surface-2);
+  }
+  .user-menu-logout{
+    margin-top:6px;
+    display:block;
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(239,68,68,0.08);
+    color:#b91c1c;
+    font-weight:700;
+    text-align:center;
+    text-decoration:none;
+  }
+  @media (max-width: 900px){
+    .user-text{
+      display:none;
+    }
   }
   .tenant-controls{
     display:flex;
@@ -576,10 +766,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
       <span>Fachabteilungen</span>
     </a>
-    <a href="erfassung.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3h6v4H9z"/></svg>
-      <span>Erfassung</span>
-    </a>
+    <div class="nav-group">
+      <button class="nav-toggle" type="button" data-nav-toggle="erfassung" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3h6v4H9z"/></svg>
+        <span>Erfassung</span>
+        <svg class="nav-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5 7l5 6 5-6H5z"></path></svg>
+      </button>
+      <div class="nav-sub" data-nav-sub="erfassung">
+        <a href="erfassung.html">Stationsdaten</a>
+        <a href="erfassung-betten.html">Betten &amp; Auslastung</a>
+        <a href="erfassung-ppug.html">PPUG / Untergrenzen</a>
+      </div>
+    </div>
   </nav>
 </aside>
 
@@ -590,11 +788,33 @@
           <p>Farbiges KPI-Dashboard mit produktiven Daten.</p>
         </div>
         <div class="topbar-actions app-actions" data-app-actions>
-          <span class="pill app-pill" id="tenantPill" style="display:none;"></span>
-          <span class="pill app-pill" id="userEmailPill" style="display:none;"></span>
           <button class="button app-button secondary" id="refreshButton" type="button">Aktualisieren</button>
           <button class="button app-button primary" type="button">Report exportieren</button>
-          <a class="button app-button secondary logout-link" href="/cdn-cgi/access/logout">Logout</a>
+          <div class="user-menu-wrap">
+            <button id="userMenuButton" class="user-menu-btn" type="button" aria-expanded="false">
+              <span class="user-avatar" aria-hidden="true"></span>
+              <span class="user-text">
+                <span class="user-name" id="userName">Benutzer</span>
+                <span class="user-meta" id="userMeta">Mandant: --</span>
+              </span>
+              <svg class="user-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M5 7l5 6 5-6H5z"></path>
+              </svg>
+            </button>
+            <div id="userMenu" class="user-menu" aria-hidden="true">
+              <div class="user-menu-head">
+                <div class="user-menu-name" id="userMenuName">Benutzer</div>
+                <div class="user-menu-email" id="userMenuEmail">-</div>
+                <div class="user-menu-tenant" id="userMenuTenant">Mandant: --</div>
+                <div class="user-menu-dept" id="userMenuDept" style="display:none;">Abteilung: --</div>
+              </div>
+              <div class="user-menu-links">
+                <a href="#">Einstellungen</a>
+                <a href="#">Hilfe</a>
+              </div>
+              <a class="user-menu-logout" href="/cdn-cgi/access/logout">Abmelden</a>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -615,6 +835,15 @@
         const tenantLabel = document.getElementById("tenantLabel");
         const tenantPill = document.getElementById("tenantPill");
         const userEmailPill = document.getElementById("userEmailPill");
+        const userMenuButton = document.getElementById("userMenuButton");
+        const userMenu = document.getElementById("userMenu");
+        const userName = document.getElementById("userName");
+        const userMeta = document.getElementById("userMeta");
+        const userMenuName = document.getElementById("userMenuName");
+        const userMenuEmail = document.getElementById("userMenuEmail");
+        const userMenuTenant = document.getElementById("userMenuTenant");
+        const userMenuDept = document.getElementById("userMenuDept");
+        let currentTenantLabel = "";
       const pathTenantInfo = (() => {
         const segments = window.location.pathname.split("/").filter(Boolean);
         if (!segments.length) return { key: "", raw: "" };
@@ -633,10 +862,18 @@
         return raw.toUpperCase();
       };
       const setTenantPill = (label) => {
-        if (!tenantPill) return;
+        if (tenantPill) {
+          tenantPill.style.display = "none";
+        }
         const clean = label ? formatTenantDisplay(label) : "-";
-        tenantPill.textContent = `Mandant: ${clean}`;
-        tenantPill.style.display = "inline-flex";
+        currentTenantLabel = clean;
+        if (userMeta && (!userMeta.dataset.locked || userMeta.dataset.locked === "tenant")) {
+          userMeta.textContent = `Mandant: ${clean}`;
+          userMeta.dataset.locked = "tenant";
+        }
+        if (userMenuTenant) {
+          userMenuTenant.textContent = `Mandant: ${clean}`;
+        }
       };
       if (pathTenantInfo.raw) {
         setTenantPill(pathTenantInfo.raw);
@@ -743,10 +980,24 @@
         const urlParams = new URLSearchParams(window.location.search);
         const devTenant = null;
         const accessEmail = await getAccessEmail();
-        if (userEmailPill && accessEmail) {
-          userEmailPill.textContent = `Angemeldet als: ${accessEmail}`;
-          userEmailPill.style.display = "inline-flex";
+        const formatUserName = (email) => {
+          if (!email) return "Benutzer";
+          const base = String(email).split("@")[0] || "";
+          const cleaned = base.replace(/[._-]+/g, " ").trim();
+          if (!cleaned) return "Benutzer";
+          return cleaned
+            .split(" ")
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+        };
+        const userDisplay = formatUserName(accessEmail);
+        if (userEmailPill) {
+          userEmailPill.style.display = "none";
         }
+        if (userName) userName.textContent = userDisplay;
+        if (userMenuName) userMenuName.textContent = userDisplay;
+        if (userMenuEmail) userMenuEmail.textContent = accessEmail || "-";
         const buildTenantUrl = (base) => `${base}/api/tenants`;
         const cacheKey = "tenant_cache";
         const cacheTtl = 5 * 60 * 1000;
@@ -828,6 +1079,105 @@
           window.location.reload();
         });
       }
+
+      const syncUserDeptLabel = () => {
+        const candidates = [
+          document.getElementById("departmentSelect"),
+          document.getElementById("insightsDeptSelect"),
+          document.getElementById("stationSelect")
+        ].filter(Boolean);
+        if (!candidates.length) return false;
+        const select = candidates[0];
+        const label = (select.options[select.selectedIndex]?.textContent || "").trim();
+        if (label && label !== "Gesamtes Haus") {
+          if (userMeta) {
+            userMeta.textContent = label;
+            userMeta.dataset.locked = "dept";
+          }
+          if (userMenuDept) {
+            userMenuDept.textContent = `Abteilung: ${label}`;
+            userMenuDept.style.display = "block";
+          }
+          return true;
+        }
+        if (userMenuDept) {
+          userMenuDept.style.display = "none";
+        }
+        if (userMeta && currentTenantLabel) {
+          userMeta.textContent = `Mandant: ${currentTenantLabel}`;
+          userMeta.dataset.locked = "tenant";
+        }
+        return false;
+      };
+      const attachDeptListeners = () => {
+        const selects = [
+          document.getElementById("departmentSelect"),
+          document.getElementById("insightsDeptSelect"),
+          document.getElementById("stationSelect")
+        ].filter(Boolean);
+        selects.forEach((sel) => {
+          if (sel.dataset.userMetaBound) return;
+          sel.dataset.userMetaBound = "1";
+          sel.addEventListener("change", () => {
+            syncUserDeptLabel();
+          });
+        });
+      };
+      const deptRetry = (tries = 0) => {
+        attachDeptListeners();
+        const synced = syncUserDeptLabel();
+        if (!synced && tries < 8) {
+          setTimeout(() => deptRetry(tries + 1), 300);
+        }
+      };
+      deptRetry();
+
+      if (userMenuButton && userMenu) {
+        const closeMenu = () => {
+          userMenu.classList.remove("open");
+          userMenuButton.setAttribute("aria-expanded", "false");
+          userMenu.setAttribute("aria-hidden", "true");
+        };
+        userMenuButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const isOpen = userMenu.classList.toggle("open");
+          userMenuButton.setAttribute("aria-expanded", String(isOpen));
+          userMenu.setAttribute("aria-hidden", String(!isOpen));
+        });
+        document.addEventListener("click", (event) => {
+          if (!userMenu.classList.contains("open")) return;
+          const target = event.target;
+          if (target instanceof Element && (userMenu.contains(target) || userMenuButton.contains(target))) return;
+          closeMenu();
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeMenu();
+        });
+      }
+
+      const initNavToggles = () => {
+        const current = (location.pathname.split("/").pop() || "").toLowerCase();
+        document.querySelectorAll("[data-nav-toggle]").forEach((btn) => {
+          const key = btn.dataset.navToggle;
+          const panel = document.querySelector(`[data-nav-sub="${key}"]`);
+          if (!panel) return;
+          const links = Array.from(panel.querySelectorAll("a[href]"));
+          const hasActive = links.some((link) => {
+            const href = (link.getAttribute("href") || "").split("?")[0].split("#")[0].toLowerCase();
+            return href && href === current;
+          });
+          const setOpen = (open) => {
+            panel.classList.toggle("open", open);
+            btn.setAttribute("aria-expanded", String(open));
+          };
+          if (hasActive) setOpen(true);
+          btn.addEventListener("click", () => {
+            const isOpen = panel.classList.contains("open");
+            setOpen(!isOpen);
+          });
+        });
+      };
+      initNavToggles();
     })();
   </script>
 
