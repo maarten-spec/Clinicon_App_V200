@@ -293,7 +293,7 @@
       white-space:normal;
     }
     .row-hidden{
-      opacity:0.55;
+      opacity:0.6;
     }
     .row-hidden .cell-input,
     .row-hidden .multi-trigger{
@@ -301,24 +301,36 @@
     }
     .row-hidden-badge{
       display:none;
-      font-size:0.8rem;
+      align-items:center;
+      gap:8px;
+      font-size:0.78rem;
       font-weight:700;
-      color:#4b5563;
-      background:#eef2f7;
-      border:1px dashed #cbd5f5;
-      border-radius:10px;
-      padding:4px 8px;
+      color:#334155;
+      background:linear-gradient(135deg,#f8fafc,#e2e8f0);
+      border:1px solid #cbd5e1;
+      border-radius:999px;
+      padding:6px 12px;
       text-align:left;
       position:absolute;
       left:calc(-1 * (var(--col-personal) + var(--col-gap)));
-      right:0;
+      right:12px;
       bottom:6px;
+      box-shadow:0 8px 18px rgba(15,23,42,0.08);
+    }
+    .row-hidden-badge::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:#94a3b8;
+      box-shadow:0 0 0 3px rgba(148,163,184,0.25);
+      flex:0 0 auto;
     }
     .row-hidden .row-hidden-badge{
       display:inline-flex;
     }
     .row-hidden .col-name{
-      padding-bottom:28px;
+      padding-bottom:34px;
     }
     .multi-caret{
       margin-left:auto;
@@ -359,10 +371,9 @@
       display:flex;
       align-items:center;
       gap:8px;
-      padding:6px 8px;
-      border-radius:10px;
-      border:1px solid #fecaca;
-      background:#fff5f5;
+      padding:4px 2px;
+      border:none;
+      background:transparent;
     }
     .multi-option.required input{
       accent-color:#dc2626;

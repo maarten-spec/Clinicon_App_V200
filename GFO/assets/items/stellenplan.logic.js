@@ -296,10 +296,19 @@ function buildHeaderRow(extraLabel) {
 }
 
 function isRequiredQualification(qual) {
-  const code = String(qual.code || "");
-  const label = String(qual.label || "").toLowerCase();
+  const codeRaw = String(qual.code || "");
+  const code = codeRaw.toUpperCase();
+  const label = String(qual.label || "").toLowerCase().trim();
   if (code.startsWith("REQ_")) return true;
-  return label === "pflegefachkraft" || label === "pflegefachassistenz" || label === "ungelernte kraft";
+  if (code === "MFA") return true;
+  return (
+    label === "pflegefachkraft" ||
+    label === "pflegefachassistenz" ||
+    label === "ungelernte kraft" ||
+    label === "mfa" ||
+    label === "mfa/ata" ||
+    label === "mfa ata"
+  );
 }
 
 function renderQualificationOptions(selectedId) {
@@ -318,6 +327,9 @@ function renderQualificationOptions(selectedId) {
     pflegefachkraft: "Pflichtqualifikationen",
     pflegefachassistenz: "Pflichtqualifikationen",
     ungelerntkraft: "Pflichtqualifikationen",
+    ungelerntekraft: "Pflichtqualifikationen",
+    mfa: "Pflichtqualifikationen",
+    mfaata: "Pflichtqualifikationen",
     fachpflegekraftfuerintensivpflegeundanaesthesie: "Fachpflege",
     fachpflegekraftfueropdienstperioperativepflege: "Fachpflege",
     fachpflegekraftfueronkologie: "Fachpflege",
@@ -352,7 +364,7 @@ function renderQualificationOptions(selectedId) {
     const label = String(qual.label || "");
     let group = "Weitere";
 
-    if (code.startsWith("REQ_")) group = "Pflichtqualifikationen";
+    if (isRequiredQualification(qual)) group = "Pflichtqualifikationen";
     else if (code.startsWith("FACH_")) group = "Fachpflege";
     else if (code.startsWith("FUNC_")) group = "Funktionen";
     else if (code.startsWith("LEAD_")) group = "Leitung";
@@ -457,7 +469,7 @@ function renderRows(tbody, rows, type) {
         </td>
         <td class="col-name">
           <input class="cell-input cell-input-name" data-field="${type === "main" ? "name" : "category"}" value="${escapeHtml(labelValue)}" placeholder="${type === "main" ? "Mitarbeiter:in" : "Kategorie"}" />
-          <span class="row-hidden-badge">Ausgeblendet</span>
+          <span class="row-hidden-badge">Zeile ausgeblendet</span>
         </td>
       ${MONTH_LABELS.map(
         (_, index) => `
@@ -1145,6 +1157,14 @@ async function reload() {
 }
 
 async function init() {
+  const primeYearInput = () => {
+    const yearInput = $(selectors.yearInput);
+    if (yearInput && !yearInput.value) {
+      yearInput.value = state.year;
+    }
+  };
+
+  primeYearInput();
   const waitForContext = async () => {
     for (let i = 0; i < 20; i += 1) {
       const hasTenant = Boolean(sessionStorage.getItem("tenant_id"));
