@@ -191,8 +191,10 @@
   .nav-sub{
     display:none;
     flex-direction:column;
-    gap:6px;
-    padding-left:18px;
+    gap:4px;
+    margin-left:18px;
+    padding-left:14px;
+    border-left:1px solid rgba(13,20,51,0.08);
   }
   .nav-sub.open{
     display:flex;
@@ -200,21 +202,25 @@
   .nav-sub a{
     display:flex;
     align-items:center;
-    gap:10px;
+    gap:8px;
     text-decoration:none;
+    color:var(--muted);
+    padding:8px 10px;
+    border-radius:12px;
+    border:1px solid transparent;
+    background:transparent;
+    box-shadow:none;
+    font-size:0.88rem;
+  }
+  .nav-sub a:hover{
     color:var(--ink);
-    padding:10px 12px;
-    border-radius:14px;
-    border:1px solid rgba(15,23,42,0.08);
-    background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,249,255,0.96));
-    box-shadow:0 8px 16px rgba(15,23,42,0.04);
-    font-size:0.92rem;
+    background:rgba(28,107,255,0.08);
   }
   .nav-sub a.active{
-    background:linear-gradient(135deg, var(--accent), #458cff);
-    color:#fff;
-    border-color:transparent;
-    box-shadow:0 12px 24px rgba(28,107,255,0.25);
+    color:var(--accent);
+    background:rgba(28,107,255,0.12);
+    border-color:rgba(28,107,255,0.2);
+    box-shadow:none;
   }
   .side-footer{
     margin-top:auto;
