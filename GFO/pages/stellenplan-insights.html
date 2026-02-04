@@ -2016,6 +2016,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     if (location && location.origin && !location.origin.startsWith("file:")) return "";
     return "https://clinicon-stellenplan.maarten-koomen.workers.dev";
   };
+  window.resolveApiBase = resolveApiBase;
 
   const isCrossOrigin = (url) => {
     try {
@@ -2533,7 +2534,7 @@ function renderQualSection(agg, data) {
       if (elements.rangeLabel) {
         elements.rangeLabel.textContent = (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
       }
-      syncInsightsYearSelect(safePayload);
+      syncInsightsYearSelect(data);
       if (elements.dataNote) {
         const source = data.meta && data.meta.source ? data.meta.source : "d1";
         const updated = data.meta && data.meta.updated_at ? data.meta.updated_at : "n/a";
@@ -2738,7 +2739,7 @@ function renderQualSection(agg, data) {
       if (!deptSelect) return;
       const previousLabel = (deptSelect.options[deptSelect.selectedIndex]?.textContent || "").trim();
       const previousValue = (deptSelect.value || "").trim();
-      const apiBase = resolveApiBase();
+      const apiBase = window.resolveApiBase ? window.resolveApiBase() : "";
       const params = new URLSearchParams();
       let tenantId = document.body.dataset.tenantId || sessionStorage.getItem("tenant_id") || "";
       if (!tenantId) {
