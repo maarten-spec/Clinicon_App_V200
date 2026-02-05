@@ -100,9 +100,8 @@ table{font-size:0.95rem;}
 <h1>Alle Abteilungen in einer Uebersicht</h1>
               <p class="hint">Summiert VZae aus <strong>stellenplan_employees</strong> je Abteilung und Jahr.</p>
               <div class="hero-meta">
-                <span class="chip"><small>Mandant</small><strong id="siteLabel">-</strong></span>
+                <span class="chip"><small>Standort</small><strong id="siteLabel">-</strong></span>
                 <span class="chip"><small>Jahr</small><strong id="heroYear">-</strong></span>
-                <span class="chip"><small>Abteilungen</small><strong id="heroDepts">-</strong></span>
               </div>
             </div>
           </div>
@@ -121,29 +120,32 @@ table{font-size:0.95rem;}
           </div>
         </section>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    const SUPABASE_URL_STORAGE = 'clinicon_supabase_url';
-    const SUPABASE_KEY_STORAGE = 'clinicon_supabase_key';
     const MONTHS = ['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-    const KNOWN_DEPTS = ['Station 1','Station 2','Station 3','Station 4','Station 5','Station 6','Station 7','Endoskopie','OP','Sozialdienst','Pflegedienstleitung'];
-    const DEFAULT_SUPABASE_URL = 'https://fqilehnixnsujefyrdcy.supabase.co';
-    const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaWxlaG5peG5zdWplZnlyZGN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MjIyNzUsImV4cCI6MjA3OTQ5ODI3NX0.Ml1J-YsID7_CXX7LbLZM4ayhWpV08FBSZc3rgVuwqt4';
-    const SUPABASE_URL = (window.SUPABASE_URL || localStorage.getItem(SUPABASE_URL_STORAGE) || DEFAULT_SUPABASE_URL).trim();
-    const SUPABASE_ANON_KEY = (window.SUPABASE_ANON_KEY || localStorage.getItem(SUPABASE_KEY_STORAGE) || DEFAULT_SUPABASE_KEY).trim();
-    const supabaseClient = (typeof window.supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY)
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
-    const SITE_LABEL = (sessionStorage.getItem('cliniconSite') || '').trim();
-    const SITE_CODE = SITE_LABEL.toLowerCase().replace(/[^a-z0-9_]/g,'');
-    const HAS_SITE = Boolean(SITE_CODE);
-    const tableName = (base) => SITE_CODE ? `${base}_${SITE_CODE}` : base;
-    if(!localStorage.getItem(SUPABASE_URL_STORAGE) && SUPABASE_URL){
-      try{ localStorage.setItem(SUPABASE_URL_STORAGE, SUPABASE_URL); }catch(e){ /* ignore quota issues */ }
-    }
-    if(!localStorage.getItem(SUPABASE_KEY_STORAGE) && SUPABASE_ANON_KEY){
-      try{ localStorage.setItem(SUPABASE_KEY_STORAGE, SUPABASE_ANON_KEY); }catch(e){ /* ignore quota issues */ }
-    }
+    const apiBase = (typeof window.resolveApiBase === "function")
+      ? window.resolveApiBase()
+      : (document.body.dataset.apiBase || "");
+    const apiUrl = (path) => `${apiBase}${path}`;
+    const formatTenantDisplay = (label) => {
+      const raw = String(label || "").trim();
+      const normalized = raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+      if (normalized.startsWith("GFO") && normalized.length === 6) {
+        return `GFO-${normalized.slice(3)}`;
+      }
+      return raw.toUpperCase();
+    };
+    const readUserEmail = () => (sessionStorage.getItem("user_email") || "").trim();
+    const fetchJson = async (path) => {
+      const headers = { Accept: "application/json" };
+      const email = readUserEmail();
+      if (email) headers["x-user-email"] = email;
+      const res = await fetch(apiUrl(path), { headers, credentials: "same-origin" });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      return res.json();
+    };
 
     const els = {
       yearSelect: document.getElementById('yearSelect'),
@@ -152,43 +154,14 @@ table{font-size:0.95rem;}
       deptTable: document.getElementById('deptTable'),
       siteLabel: document.getElementById('siteLabel'),
       heroYear: document.getElementById('heroYear'),
-      heroDepts: document.getElementById('heroDepts'),
     };
 
     const state = {
       year: null,
       rows: [],
+      tenantId: null,
+      departments: []
     };
-    const PARAM_TABLE = SITE_CODE ? `parameter_${SITE_CODE}` : null;
-    let planMap = {};
-    const PLAN_KEY = 'stellenplan_gesamt_plan_v1';
-
-    function loadPlanStore(){
-      try{
-        return JSON.parse(localStorage.getItem(PLAN_KEY) || '{}');
-      }catch(e){
-        return {};
-      }
-    }
-    const planStore = loadPlanStore();
-    function savePlanStore(){
-      try{ localStorage.setItem(PLAN_KEY, JSON.stringify(planStore)); }catch(e){}
-    }
-    function planBucketKey(){
-      const site = SITE_CODE || 'default';
-      const year = state.year || new Date().getFullYear();
-      return `${site}-${year}`;
-    }
-    function getPlanValue(dept){
-      const bucket = planStore[planBucketKey()] || {};
-      return Number(bucket[dept]) || 0;
-    }
-    function setPlanValue(dept, value){
-      const key = planBucketKey();
-      if(!planStore[key]) planStore[key] = {};
-      planStore[key][dept] = value;
-      savePlanStore();
-    }
 
     function fmt(n){
       const num = Number(n || 0);
@@ -200,98 +173,19 @@ table{font-size:0.95rem;}
       els.status.style.color = ok ? '#16a34a' : '#b91c1c';
     }
 
-    function getPlanValue(dept){
-      return Number(planMap[dept] || 0);
-    }
-
-    async function loadPlanValues(){
-      if(!supabaseClient || !PARAM_TABLE){
-        planMap = {};
-        return;
+    const buildYearList = () => {
+      const now = new Date().getFullYear();
+      const years = [];
+      for (let i = 0; i < 5; i += 1) {
+        years.push(now - i);
       }
-      const { data, error } = await supabaseClient
-        .from(PARAM_TABLE)
-        .select('dept, wirtschaftsplan_vk')
-        .eq('year', state.year);
-      if(error){
-        setStatus(error.message, false);
-        planMap = {};
-        return;
-      }
-      planMap = {};
-      (data || []).forEach(row => {
-        if(row.dept){
-          planMap[row.dept] = Number(row.wirtschaftsplan_vk) || 0;
-        }
-      });
-    }
-
-    function parseMonths(arr){
-      if(Array.isArray(arr)) return arr.map(v=>Number(v)||0);
-      if(typeof arr === 'string'){
-        const cleaned = arr.replace(/[{}]/g,'');
-        if(!cleaned) return Array(12).fill(0);
-        return cleaned.split(',').map(v=>Number(v)||0);
-      }
-      return Array(12).fill(0);
-    }
-
-    async function loadMeta(){
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert.', false);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        return;
-      }
-      const { data: years, error } = await supabaseClient
-        .from(tableName('stellenplan_employees'))
-        .select('year')
-        .not('year', 'is', null)
-        .order('year');
-      if(error){
-        throw new Error(error.message);
-      }
-      const yearList = [...new Set((years || []).map(y=>y.year).filter(Boolean))];
-      els.yearSelect.innerHTML = yearList.length ? yearList.map(y=>`<option value="${y}">${y}</option>`).join('') : `<option value="${new Date().getFullYear()}">${new Date().getFullYear()}</option>`;
-      state.year = yearList[0] || new Date().getFullYear();
-      els.yearSelect.value = state.year;
-      if(els.siteLabel) els.siteLabel.textContent = SITE_LABEL || '-';
-      if(els.heroYear) els.heroYear.textContent = state.year;
-    }
-
-    function aggregate(emps){
-      const map = new Map();
-      const ensure = (dept) => {
-        if(!map.has(dept)){
-          map.set(dept, {
-            dept,
-            empCount:0,
-            months:Array(12).fill(0)
-          });
-        }
-        return map.get(dept);
-      };
-      KNOWN_DEPTS.forEach(ensure);
-      emps.forEach(e => {
-        const target = ensure(e.dept);
-        target.empCount += 1;
-        const months = parseMonths(e.months ?? e.values);
-        months.forEach((v,i) => target.months[i] += Number(v)||0);
-      });
-
-      const ordered = [];
-      KNOWN_DEPTS.forEach(d => { if(map.has(d)) ordered.push(map.get(d)); });
-      map.forEach((val, key) => { if(!KNOWN_DEPTS.includes(key)) ordered.push(val); });
-      return ordered;
-    }
+      return years;
+    };
 
     function renderTable(rows){
       const safeRows = rows || [];
       if(!safeRows.length){
         els.deptTable.innerHTML = '<tr><td>Keine Daten gefunden.</td></tr>';
-        if(els.heroDepts) els.heroDepts.textContent = '0';
         return;
       }
       const header = `<tr>
@@ -300,12 +194,11 @@ table{font-size:0.95rem;}
         ${MONTHS.map(m=>`<th class="num">${m}</th>`).join('')}
         <th class="num">&Oslash; Jahr</th>
         <th class="num">Abweichung</th>
-        <th class="num">Koepfe</th>
       </tr>`;
       const body = safeRows.map(r => {
         const total = r.months.reduce((a,b)=>a+b,0);
         const avgYear = total/12;
-        const plan = getPlanValue(r.dept);
+        const plan = r.planAvg || 0;
         const delta = avgYear - plan;
         const deltaClass = delta >= 0 ? 'delta-pos' : 'delta-neg';
         return `<tr>
@@ -314,17 +207,16 @@ table{font-size:0.95rem;}
           ${r.months.map(v=>`<td class="num">${fmt(v)}</td>`).join('')}
           <td class="num">${fmt(avgYear)}</td>
           <td class="num ${deltaClass}">${fmt(delta)}</td>
-          <td class="num">${r.empCount}</td>
         </tr>`;
       }).join('');
       const totals = safeRows.reduce((acc, r) => {
-        acc.emp += r.empCount;
         r.months.forEach((v,i)=> acc.months[i]+=v);
+        acc.plan += r.planAvg || 0;
         return acc;
-      }, { emp:0, months:Array(12).fill(0) });
+      }, { plan:0, months:Array(12).fill(0) });
       const totalYear = totals.months.reduce((a,b)=>a+b,0);
       const avgYearTotal = totalYear/12;
-      const planTotal = safeRows.reduce((sum,r)=>sum + getPlanValue(r.dept),0);
+      const planTotal = totals.plan;
       const deltaTotal = avgYearTotal - planTotal;
       const deltaTotalClass = deltaTotal >= 0 ? 'delta-pos' : 'delta-neg';
       const footer = `<tr class="totals-row">
@@ -333,35 +225,37 @@ table{font-size:0.95rem;}
         ${totals.months.map(v=>`<td class="num">${fmt(v)}</td>`).join('')}
         <td class="num">${fmt(avgYearTotal)}</td>
         <td class="num ${deltaTotalClass}">${fmt(deltaTotal)}</td>
-        <td class="num">${totals.emp}</td>
       </tr>`;
       els.deptTable.innerHTML = header + body + footer;
-      if(els.heroDepts) els.heroDepts.textContent = safeRows.length;
     }
 
     async function loadData(){
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert.', false);
-        renderTable([]);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        renderTable([]);
-        return;
-      }
       setStatus('Lade Daten ...', true);
-      await loadPlanValues();
-      const { data: emps, error: empErr } = await supabaseClient
-        .from(tableName('stellenplan_employees'))
-        .select('dept, year, personal_number, months, values')
-        .eq('year', state.year);
-      if(empErr){
-        throw new Error(empErr.message || 'Laden fehlgeschlagen.');
+      const tenantId = state.tenantId;
+      if (!tenantId) {
+        setStatus('Kein Standort gefunden. Bitte zuerst anmelden.', false);
+        renderTable([]);
+        return;
       }
-      const rows = aggregate(emps || []);
-      state.rows = rows;
-      renderTable(rows);
+      if (!state.departments.length) {
+        setStatus('Keine Abteilungen gefunden.', false);
+        renderTable([]);
+        return;
+      }
+      const paramsBase = new URLSearchParams({ year: String(state.year) });
+      if (tenantId) paramsBase.set("tenant", String(tenantId));
+      const summaries = await Promise.all(state.departments.map(async (dept) => {
+        const params = new URLSearchParams(paramsBase);
+        params.set("department", String(dept.id));
+        const data = await fetchJson(`/api/stellenplan/summary?${params.toString()}`);
+        return {
+          dept: dept.name || dept.code || `Abteilung ${dept.id}`,
+          months: Array.isArray(data?.combined?.months) ? data.combined.months.map((v) => Number(v) || 0) : Array(12).fill(0),
+          planAvg: Number(data?.plan?.average) || 0
+        };
+      }));
+      state.rows = summaries;
+      renderTable(summaries);
       setStatus('Fertig.');
     }
 
@@ -377,16 +271,24 @@ table{font-size:0.95rem;}
 
     (async function init(){
       bindEvents();
-      if(!supabaseClient){
-        setStatus('Supabase nicht konfiguriert. Bitte URL/Key setzen (localStorage clinicon_supabase_url / clinicon_supabase_key).', false);
-        return;
-      }
-      if(!HAS_SITE){
-        setStatus('Kein Standortcode gefunden. Bitte zuerst einloggen.', false);
-        return;
-      }
       try{
-        await loadMeta();
+        const tenantInfo = await fetchJson("/api/tenants");
+        const tenant = tenantInfo?.tenant || (Array.isArray(tenantInfo?.tenants) ? tenantInfo.tenants[0] : null);
+        if (tenant && tenant.id) {
+          state.tenantId = tenant.id;
+          const label = tenant.code || tenant.name || "-";
+          if (els.siteLabel) els.siteLabel.textContent = formatTenantDisplay(label);
+        }
+        const years = buildYearList();
+        els.yearSelect.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
+        state.year = years[0];
+        els.yearSelect.value = String(state.year);
+        if (els.heroYear) els.heroYear.textContent = state.year;
+
+        if (state.tenantId) {
+          const deptData = await fetchJson(`/api/departments?tenant=${state.tenantId}`);
+          state.departments = Array.isArray(deptData?.departments) ? deptData.departments : [];
+        }
         await loadData();
       }catch(err){
         setStatus(err.message, false);

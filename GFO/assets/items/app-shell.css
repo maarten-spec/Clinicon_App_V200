@@ -456,11 +456,14 @@ body::after{
   color:var(--muted);
 }
 .nav-sub{
-  display:flex;
+  display:none;
   flex-direction:column;
   gap:8px;
   margin:0;
   padding-left:0;
+}
+.nav-sub.open{
+  display:flex;
 }
 .nav-sub a{
   border-radius:16px;

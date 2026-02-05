@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
@@ -1175,7 +1175,7 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       <div class="qual-head" style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
         <div>
           <h3 style="margin-top:0;">Qualifikationen &amp; Abdeckung</h3>
-          <p class="hint" style="margin:6px 0 6px;">Daten aus <strong>stellenplan_employees</strong> (Mandant &amp; Jahr siehe Badges).</p>
+          <p class="hint" style="margin:6px 0 6px;">Daten aus der D1 Datenbank (Mandant &amp; Jahr siehe Badges).</p>
           <ul id="hints" class="hint-list"></ul>
         </div>
         <div class="badge-bar">
@@ -1194,20 +1194,20 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       <div class="cockpit-grid" id="qualSummaryTiles"></div>
       <div class="qual-grid">
         <div class="qual-panel">
-              <h4 style="margin:0;">Aktuelle Abteilung/Station</h4>
+          <h4 style="margin:0;">Qualifikationen der Auswahl</h4>
           <div class="qual-table-wrap">
             <table id="qualDeptTable"></table>
           </div>
         </div>
         <div class="qual-panel">
-          <h4 style="margin:0;">Stationen &amp; Haus</h4>
+          <h4 style="margin:0;">Alle Qualifikationen (hausweit)</h4>
           <div class="qual-table-wrap">
             <table id="qualSummaryTable"></table>
           </div>
         </div>
       </div>
       <div class="qual-panel">
-        <h4 style="margin:0;">Alle Mitarbeitenden mit Qualifikationen (hausweit)</h4>
+        <h4 style="margin:0;">Qualifikationen (Detail)</h4>
         <div class="qual-table-wrap">
           <table id="qualPeopleTable"></table>
         </div>
@@ -1330,6 +1330,9 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
 
     function setActiveTab(tab){state.currentTab=tab;(els.tabButtons||[]).forEach(btn=>{const a=btn.dataset.tabBtn===tab;btn.classList.toggle('active',a);btn.setAttribute('aria-pressed',a?'true':'false');});(els.tabSections||[]).forEach(sec=>{const tabs=(sec.dataset.tabs||'').split(/\s+/).filter(Boolean);sec.classList.toggle('section-hidden',!tabs.includes(tab));});}
     function sortDepts(ds){const order=new Map();DEPT_ORDER.forEach((d,i)=>order.set(d,i));return ds.sort((a,b)=>{const ia=order.has(a)?order.get(a):999;const ib=order.has(b)?order.get(b):999; if(ia!==ib) return ia-ib; return a.localeCompare(b,'de');});}
+    function normalizeKey(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+    window.__useD1Dashboard = true;
+    window.__useD1Quals = true;
     function fmt(n){const num=Number(n||0);return num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});}
     function setStatus(msg,ok=true){if(!els.status)return;els.status.textContent=msg;els.status.style.color=ok?'#16a34a':'#b91c1c';}
     function parseMonths(arr){if(Array.isArray(arr))return arr.map(v=>Number(v)||0); if(typeof arr==='string'){const c=arr.replace(/[{}]/g,''); if(!c)return Array(12).fill(0); return c.split(',').map(v=>Number(v)||0);} return Array(12).fill(0);}
@@ -1366,7 +1369,14 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       const html=opts.map(v=>`<option value="${v}" ${v===prev?'selected':''}>${v==='__all__'?'Alle Stationen':v}</option>`).join('');
       els.deptSelect.innerHTML=html;
       if(els.chartsDeptSelect)els.chartsDeptSelect.innerHTML=html;
-      state.dept=opts.includes(prev)?prev:'__all__';
+      const pending = window.__pendingInsightsDeptLabel || '';
+      const pendingMatch = pending && opts.find((v)=>normalizeKey(v)===normalizeKey(pending));
+      if (pendingMatch) {
+        state.dept = pendingMatch;
+        window.__pendingInsightsDeptLabel = '';
+      } else {
+        state.dept=opts.includes(prev)?prev:'__all__';
+      }
       els.deptSelect.value=state.dept;
       if(els.chartsDeptSelect)els.chartsDeptSelect.value=state.dept;
       if(els.heroDeptLabel){
@@ -1602,6 +1612,171 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
         <div class="glass-card-label">${c.label}</div>
       </div>`).join('');
     }
+
+    function buildD1KpisFromStations(data, deptLabel){
+      const stations = Array.isArray(data && data.stations) ? data.stations : [];
+      const label = (deptLabel || '').trim();
+      const filtered = label && label !== 'Gesamtes Haus'
+        ? stations.filter(s => normalizeKey(s.station || '') === normalizeKey(label))
+        : stations;
+      const rows = filtered.map(s => {
+        const pfk = Number(s.pfk_vza || 0);
+        const pfa = Number(s.pfa_vza || 0);
+        const total = pfk + pfa;
+        return { dept: s.station || 'Station', pfk, pfa, total };
+      }).filter(r => r.total > 0);
+      return rows;
+    }
+
+    function updateDashboardFromD1(data){
+      const insightsDept = document.getElementById('insightsDeptSelect');
+      const dashDept = document.getElementById('deptSelect');
+      const dashDeptCharts = document.getElementById('chartsDeptSelect');
+      if (insightsDept && dashDept) {
+        const opts = Array.from(insightsDept.options || []).map((opt) => {
+          const label = (opt.textContent || '').trim();
+          return {
+            label,
+            value: label === 'Gesamtes Haus' ? '__all__' : label
+          };
+        });
+        dashDept.innerHTML = opts.map(o => `<option value="${o.value}">${o.label === 'Gesamtes Haus' ? 'Alle Stationen' : o.label}</option>`).join('');
+        if (dashDeptCharts) dashDeptCharts.innerHTML = dashDept.innerHTML;
+      }
+      const insightsYear = document.getElementById('insightsYearSelect');
+      const dashYear = document.getElementById('yearSelect');
+      const dashYearCharts = document.getElementById('chartsYearSelect');
+      if (insightsYear && dashYear) {
+        dashYear.innerHTML = insightsYear.innerHTML;
+        dashYear.value = insightsYear.value;
+        if (dashYearCharts) {
+          dashYearCharts.innerHTML = insightsYear.innerHTML;
+          dashYearCharts.value = insightsYear.value;
+        }
+        if (!dashYear.dataset.d1Bound) {
+          dashYear.dataset.d1Bound = "1";
+          dashYear.addEventListener("change", () => {
+            insightsYear.value = dashYear.value;
+            sessionStorage.setItem("insights_year", insightsYear.value);
+            if (typeof window.__loadInsights === "function") {
+              window.__loadInsights();
+            }
+          });
+        }
+      }
+      const deptSelect = document.getElementById('insightsDeptSelect');
+      const deptLabel = deptSelect && deptSelect.value
+        ? (deptSelect.options[deptSelect.selectedIndex]?.textContent || '').trim()
+        : 'Gesamtes Haus';
+      const trend = Array.isArray(data && data.trend) ? data.trend : [];
+      const actual = trend.map(row => Number(row.staffed_hours || 0));
+      const forecast = linearForecast(actual,12);
+      forecastCache = forecast.slice();
+      const scenarioDelta = Number(els.scenarioInput?.value || 0);
+      const scenario = applyScenario(forecast, scenarioDelta);
+      recalcScenario(actual, forecast);
+      const total = actual.reduce((a,b)=>a+b,0);
+      const peak = Math.max(...actual,0);
+      const peakIdx = actual.indexOf(peak);
+      if (els.kpiTotal) els.kpiTotal.textContent = fmt(total);
+      if (els.kpiForecast) els.kpiForecast.textContent = fmt(forecast.reduce((a,b)=>a+b,0));
+      if (els.kpiPeak) els.kpiPeak.textContent = peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
+      if (els.heroTotal) els.heroTotal.textContent = fmt(total);
+      if (els.heroPeak) els.heroPeak.textContent = peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
+      const cumA=actual.reduce((acc,v,i)=>{acc.push((acc[i-1]||0)+v);return acc;},[]);
+      const cumF=forecast.reduce((acc,v,i)=>{acc.push((acc[i-1]||0)+v);return acc;},[]);
+      const cumS=scenario.reduce((acc,v,i)=>{acc.push((acc[i-1]||0)+v);return acc;},[]);
+      renderDashLines(actual, forecast, scenarioDelta!==0?scenario:null);
+      renderLineChartSvg(actual, forecast);
+      renderGroupedBars(actual);
+      renderBubbleChart(actual, forecast);
+      renderTable(actual, forecast, scenarioDelta!==0?scenario:null, cumA, cumF, cumS);
+      const hints = renderHintsList(actual, forecast);
+      if (els.hints) {
+        els.hints.innerHTML = hints.length ? hints.map(h=>`<li>${h}</li>`).join('') : '<li>Keine Hinweise.</li>';
+      }
+      const kpis = buildD1KpisFromStations(data, deptLabel);
+      renderRatioCards(kpis);
+      renderPillsNew(kpis);
+      renderDonuts(kpis);
+      renderGlassCards(kpis);
+    }
+
+    function updateQualificationsFromD1(data){
+      const qualFilter = els.qualFilter;
+      const deptSelect = document.getElementById('insightsDeptSelect');
+      const deptLabel = deptSelect && deptSelect.value
+        ? (deptSelect.options[deptSelect.selectedIndex]?.textContent || '').trim()
+        : 'Gesamtes Haus';
+      if (els.qualDeptLabel) {
+        els.qualDeptLabel.textContent = deptLabel || 'Gesamtes Haus';
+      }
+      if (els.qualYearLabel) {
+        const y = data && data.year ? String(data.year) : String(new Date().getFullYear());
+        els.qualYearLabel.textContent = y;
+      }
+      if (els.qualSiteLabel && data && data.tenant) {
+        const label = data.tenant.name || data.tenant.code || '';
+        if (label) els.qualSiteLabel.textContent = label;
+      }
+      const qualifications = Array.isArray(data && data.qualifications) ? data.qualifications : [];
+      const mix = Array.isArray(data && data.qual_mix) ? data.qual_mix : [];
+      const filteredMix = deptLabel && deptLabel !== 'Gesamtes Haus'
+        ? mix.filter(m => normalizeKey(m.station || '') === normalizeKey(deptLabel))
+        : mix;
+      const totalsByQual = new Map();
+      filteredMix.forEach(m => {
+        const key = String(m.qualification_id || '');
+        const total = Number(m.total || 0);
+        totalsByQual.set(key, (totalsByQual.get(key) || 0) + total);
+      });
+      if (qualFilter) {
+        const opts = ['__all__', ...qualifications.map(q => q.label || q.code || '').filter(Boolean)];
+        qualFilter.innerHTML = opts.map(v=>`<option value="${v}" ${v==='__all__'?'selected':''}>${v==='__all__'?'Alle':v}</option>`).join('');
+      }
+      const rows = qualifications.map(q => {
+        const key = String(q.id || '');
+        return {
+          label: q.label || q.code || 'Qualifikation',
+          total: totalsByQual.get(key) || 0
+        };
+      });
+      const filterValue = qualFilter ? qualFilter.value || '__all__' : '__all__';
+      const visibleRows = filterValue && filterValue !== '__all__'
+        ? rows.filter(r => normalizeKey(r.label) === normalizeKey(filterValue))
+        : rows;
+      if (els.qualDeptTable) {
+        if (!visibleRows.length) {
+          els.qualDeptTable.innerHTML = '<tr><td>Keine Qualifikationen gefunden.</td></tr>';
+        } else {
+          const head = '<tr><th>Qualifikation</th><th style="text-align:right;">VZ\u00C4</th></tr>';
+          const body = visibleRows.map(r=>`<tr><td>${r.label}</td><td style="text-align:right;">${fmt(r.total)}</td></tr>`).join('');
+          els.qualDeptTable.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+        }
+      }
+      if (els.qualSummaryTable) {
+        if (!rows.length) {
+          els.qualSummaryTable.innerHTML = '<tr><td>Keine Qualifikationen gefunden.</td></tr>';
+        } else {
+          const head = '<tr><th>Qualifikation</th><th style="text-align:right;">VZ\u00C4</th></tr>';
+          const body = rows.map(r=>`<tr><td>${r.label}</td><td style="text-align:right;">${fmt(r.total)}</td></tr>`).join('');
+          els.qualSummaryTable.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+        }
+      }
+      if (els.qualPeopleTable) {
+        if (!visibleRows.length) {
+          els.qualPeopleTable.innerHTML = '<tr><td>Keine Qualifikationen gefunden.</td></tr>';
+        } else {
+          const head = '<tr><th>Qualifikation</th><th style="text-align:right;">VZ\u00C4</th></tr>';
+          const body = visibleRows.map(r=>`<tr><td>${r.label}</td><td style="text-align:right;">${fmt(r.total)}</td></tr>`).join('');
+          els.qualPeopleTable.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+        }
+      }
+      renderQualTiles(visibleRows.map(r=>({qual:r.label})));
+    }
+
+    window.__updateDashboardFromD1 = updateDashboardFromD1;
+    window.__updateQualFromD1 = updateQualificationsFromD1;
 
     async function savePlanTotal(){
       if(!supabaseClient || !PARAM_TABLE){setStatus('Supabase/Param-Tabelle nicht verfuegbar.', false);return;}
@@ -1845,55 +2020,81 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       const peak=Math.max(...combined,0);
       const peakIdx=combined.indexOf(peak);
 
-      els.kpiTotal.textContent=fmt(total);
-      els.kpiForecast.textContent=fmt(forecast.reduce((a,b)=>a+b,0));
-      els.kpiPeak.textContent=peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
-      if(els.heroTotal){
-        els.heroTotal.textContent=fmt(total);
-      }
-      if(els.heroPeople){
+      const useD1Dash = window.__useD1Dashboard === true;
+      if (!useD1Dash) {
+        els.kpiTotal.textContent=fmt(total);
+        els.kpiForecast.textContent=fmt(forecast.reduce((a,b)=>a+b,0));
+        els.kpiPeak.textContent=peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
+        if(els.heroTotal){
+          els.heroTotal.textContent=fmt(total);
+        }
+        if(els.heroPeople){
+          els.heroPeople.textContent=activeEntries.length;
+        }
+        if(els.heroPeak){
+          els.heroPeak.textContent=peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
+        }
+
+        renderTable(combined,forecast,scenarioDelta!==0?scenario:null,cumA,cumF,cumS);
+        recalcScenario(combined, forecast);
+        renderGroupedBars(combined);
+        renderBubbleChart(combined,forecast);
+        const scopedEntries=state.dept==='__all__'?state.allEntries:state.allEntries.filter(e=>e.dept===state.dept);
+        const Kpis=buildDeptKpis(scopedEntries);
+        renderRatioCards(Kpis);
+        renderDonuts(Kpis);
+        renderPillsNew(Kpis);
+        renderSparklines(Kpis);
+        renderCapacity(Kpis);
+        renderBubbles(Kpis);
+        renderLineChartSvg(combined,forecast);
+        renderGlassCards(Kpis);
+        renderHeatmap(state.allEntries);
+      } else if (els.heroPeople) {
         els.heroPeople.textContent=activeEntries.length;
       }
-      if(els.heroPeak){
-        els.heroPeak.textContent=peak>0?`${MONTHS[peakIdx]} (${fmt(peak)})`:'-';
-      }
-
-      renderTable(combined,forecast,scenarioDelta!==0?scenario:null,cumA,cumF,cumS);
-      recalcScenario(combined, forecast);
-      renderGroupedBars(combined);
-      renderBubbleChart(combined,forecast);
-      const scopedEntries=state.dept==='__all__'?state.allEntries:state.allEntries.filter(e=>e.dept===state.dept);
-      const Kpis=buildDeptKpis(scopedEntries);
-      renderRatioCards(Kpis);
-      renderDonuts(Kpis);
-      renderPillsNew(Kpis);
-      renderSparklines(Kpis);
-      renderCapacity(Kpis);
-      renderBubbles(Kpis);
-      renderLineChartSvg(combined,forecast);
-      renderGlassCards(Kpis);
-      renderHeatmap(state.allEntries);
 
       const hints=[...renderHintsList(combined,forecast),...computeQualAlerts(state.allEntries)];
       if(els.hints){els.hints.innerHTML=hints.length?hints.map(h=>`<li>${h}</li>`).join(''):'<li>Keine Hinweise.</li>';}
 
-      renderQualTables(activeEntries,state.allEntries,activeFilter);
+      if (window.__useD1Quals !== true) {
+        renderQualTables(activeEntries,state.allEntries,activeFilter);
+      }
       setStatus('Fertig.');
     }
 
-    function computeQualAlerts(entries){const alerts=[];const active=(entries||[]).filter(e=>e.include!==false);const by=active.reduce((acc,e)=>{(acc[e.dept]=acc[e.dept]||[]).push(e);return acc;},{});Object.entries(by).forEach(([dept,list])=>{const total=list.length||1;const count=kw=>list.filter(e=>normalizeQuals(e.qual).some(q=>q.toLowerCase().includes(kw))).length;const praxis=count('praxisanleitung');const hygiene=count('hygiene');const anae=count('anästhesie')+count('anaesthesie')+count('intensiv');const notfall=count('notfall');const qA=anae/total;const qN=notfall/total;if(praxis<=1)alerts.push(`Station ${dept}: Nur ${praxis} Praxisanleiter:in erfasst (Frühwarnung).`);if(hygiene<=2)alerts.push(`Station ${dept}: Nur ${hygiene} Hygienefachkraft/Fachkräfte erfasst (Frühwarnung).`);if(qA<0.5)alerts.push(`Station ${dept}: Fachweiterbildung Anästhesie/Intensiv unter 50% (${Math.round(qA*100)}%).`);if(qN<0.5)alerts.push(`Station ${dept}: Fachweiterbildung Notfallpflege unter 50% (${Math.round(qN*100)}%).`);});return alerts;}
+    function computeQualAlerts(entries){const alerts=[];const active=(entries||[]).filter(e=>e.include!==false);const by=active.reduce((acc,e)=>{(acc[e.dept]=acc[e.dept]||[]).push(e);return acc;},{});Object.entries(by).forEach(([dept,list])=>{const total=list.length||1;const count=kw=>list.filter(e=>normalizeQuals(e.qual).some(q=>q.toLowerCase().includes(kw))).length;const praxis=count('praxisanleitung');const hygiene=count('hygiene');const anae=count('anästhesie')+count('anaesthesie')+count('intensiv');const notfall=count('notfall');const qA=anae/total;const qN=notfall/total;if(praxis<=1)alerts.push(`Station ${dept}: Nur ${praxis} Praxisanleiter:in erfasst (Frühwarnung).`);if(hygiene<=2)alerts.push(`Station ${dept}: Nur ${hygiene} Hygienefachkraft/Fachkräfte erfasst (Frühwarnung).`);if(qA<0.5)alerts.push(`Station ${dept}: Fachweiterbildung anästhesie/Intensiv unter 50% (${Math.round(qA*100)}%).`);if(qN<0.5)alerts.push(`Station ${dept}: Fachweiterbildung Notfallpflege unter 50% (${Math.round(qN*100)}%).`);});return alerts;}
 
     function syncDept(val){state.dept=val;if(els.deptSelect)els.deptSelect.value=val;if(els.chartsDeptSelect)els.chartsDeptSelect.value=val;}
     function syncYear(val){state.year=Number(val);if(els.yearSelect)els.yearSelect.value=state.year;if(els.chartsYearSelect)els.chartsYearSelect.value=state.year;}
     function bindEvents(){
-      els.deptSelect.addEventListener('change',()=>{syncDept(els.deptSelect.value);loadData().catch(err=>setStatus(err.message,false));});
-      if(els.chartsDeptSelect)els.chartsDeptSelect.addEventListener('change',()=>{syncDept(els.chartsDeptSelect.value);loadData().catch(err=>setStatus(err.message,false));});
+      els.deptSelect.addEventListener('change',()=>{syncDept(els.deptSelect.value);
+        if (!window.__insightsDeptSyncState?.locked && typeof window.__syncInsightsDept === 'function') {
+          const label = els.deptSelect.value === '__all__' ? 'Gesamtes Haus' : els.deptSelect.value;
+          window.__syncInsightsDept(label);
+        }
+        loadData().catch(err=>setStatus(err.message,false));
+      });
+      if(els.chartsDeptSelect)els.chartsDeptSelect.addEventListener('change',()=>{syncDept(els.chartsDeptSelect.value);
+        if (!window.__insightsDeptSyncState?.locked && typeof window.__syncInsightsDept === 'function') {
+          const label = els.chartsDeptSelect.value === '__all__' ? 'Gesamtes Haus' : els.chartsDeptSelect.value;
+          window.__syncInsightsDept(label);
+        }
+        loadData().catch(err=>setStatus(err.message,false));
+      });
       els.yearSelect.addEventListener('change',()=>{syncYear(els.yearSelect.value);loadData().catch(err=>setStatus(err.message,false));});
       if(els.chartsYearSelect)els.chartsYearSelect.addEventListener('change',()=>{syncYear(els.chartsYearSelect.value);loadData().catch(err=>setStatus(err.message,false));});
       els.btnRefresh.addEventListener('click',()=>{loadData().catch(err=>setStatus(err.message,false));});
       els.scenarioInput.addEventListener('input',()=>{loadData().catch(err=>setStatus(err.message,false));});
       els.globalTarget.addEventListener('input',()=>{renderHeatmap(state.allEntries);});
-      if(els.qualFilter){els.qualFilter.addEventListener('change',()=>{const v=els.qualFilter.value;renderQualTables(state.allEntries.filter(e=>state.dept==='__all__'||e.dept===state.dept),state.allEntries,v);});}
+      if(els.qualFilter){els.qualFilter.addEventListener('change',()=>{
+        if (window.__useD1Quals === true && typeof window.__updateQualFromD1 === 'function' && window.__lastInsightsPayload) {
+          window.__updateQualFromD1(window.__lastInsightsPayload);
+          return;
+        }
+        const v=els.qualFilter.value;
+        renderQualTables(state.allEntries.filter(e=>state.dept==='__all__'||e.dept===state.dept),state.allEntries,v);
+      });}
       els.tabButtons.forEach(btn=>btn.addEventListener('click',()=>setActiveTab(btn.dataset.tabBtn)));
       if(els.planTable){
         els.planTable.addEventListener('input',event=>{
@@ -2026,13 +2227,14 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
     }
   };
 
+  const rootStyle = getComputedStyle(document.documentElement);
   const chartColors = {
-    accent: "#1c6bff",
-    accent2: "#ff6b35",
-    accent3: "#17c3b2",
-    accent4: "#f6bd60",
-    danger: "#ef476f",
-    gray: "#d9e2ef"
+    accent: rootStyle.getPropertyValue("--accent").trim() || "#1c6bff",
+    accent2: rootStyle.getPropertyValue("--accent-2").trim() || "#ff6b35",
+    accent3: rootStyle.getPropertyValue("--accent-3").trim() || "#17c3b2",
+    accent4: rootStyle.getPropertyValue("--accent-4").trim() || "#f6bd60",
+    danger: rootStyle.getPropertyValue("--danger").trim() || "#ef476f",
+    gray: rootStyle.getPropertyValue("--line").trim() || "#d9e2ef"
   };
 
   const charts = {};
@@ -2072,6 +2274,64 @@ body[data-app-page="stellenplan-insights"] .chart{box-shadow:var(--shadow-soft);
       return cachedDepartments;
     })();
     return cachedDepartmentsPromise;
+  };
+
+  const deptSyncState = window.__insightsDeptSyncState || { locked: false };
+  window.__insightsDeptSyncState = deptSyncState;
+
+  const syncSupabaseDept = (label) => {
+    const supaSelect = document.getElementById("deptSelect");
+    const chartsSelect = document.getElementById("chartsDeptSelect");
+    if (!supaSelect) return;
+    const normalizedLabel = (label || "").trim();
+    const target = !normalizedLabel || normalizedLabel === "Gesamtes Haus" ? "__all__" : normalizedLabel;
+    const options = Array.from(supaSelect.options || []).map((opt) => opt.value);
+    const match = options.find((opt) => normalizeKey(opt) === normalizeKey(target));
+    const nextValue = target === "__all__" ? "__all__" : (match || target);
+    if (target !== "__all__" && !match) {
+      window.__pendingInsightsDeptLabel = target;
+      return;
+    }
+    if (supaSelect.value !== nextValue) {
+      deptSyncState.locked = true;
+      supaSelect.value = nextValue;
+      if (chartsSelect) chartsSelect.value = nextValue;
+      supaSelect.dispatchEvent(new Event("change"));
+      deptSyncState.locked = false;
+    } else if (chartsSelect) {
+      chartsSelect.value = nextValue;
+    }
+  };
+  window.__syncSupabaseDept = syncSupabaseDept;
+
+  window.__syncInsightsDept = async (label) => {
+    const deptSelect = document.getElementById("insightsDeptSelect");
+    if (!deptSelect) return;
+    const normalizedLabel = (label || "").trim();
+    if (!normalizedLabel || normalizedLabel === "__all__" || normalizedLabel === "Gesamtes Haus") {
+      deptSyncState.locked = true;
+      deptSelect.value = "";
+      sessionStorage.removeItem("department_id");
+      delete document.body.dataset.departmentId;
+      deptSelect.dispatchEvent(new Event("change"));
+      deptSyncState.locked = false;
+      return;
+    }
+    const departments = await fetchDepartments();
+    const match = (departments || []).find((dept) => {
+      return (
+        normalizeKey(dept.name || "") === normalizeKey(normalizedLabel) ||
+        normalizeKey(dept.code || "") === normalizeKey(normalizedLabel)
+      );
+    });
+    if (match && match.id) {
+      deptSyncState.locked = true;
+      deptSelect.value = String(match.id);
+      sessionStorage.setItem("department_id", String(match.id));
+      document.body.dataset.departmentId = String(match.id);
+      deptSelect.dispatchEvent(new Event("change"));
+      deptSyncState.locked = false;
+    }
   };
 
   function buildStationMetrics(row) {
@@ -2561,6 +2821,7 @@ function renderQualSection(agg, data) {
       }
     }
     function applyData(data) {
+      window.__lastInsightsPayload = data;
       const stationsRaw = Array.isArray(data.stations) ? data.stations : [];
       currentStations = stationsRaw.map(buildStationMetrics);
       const sortKey = elements.stationsSort ? elements.stationsSort.value : "fulfillment-desc";
@@ -2571,6 +2832,13 @@ function renderQualSection(agg, data) {
       renderQualSection(agg, data);
       updateHeaderMeta();
       updateCharts(data);
+
+      if (typeof window.__updateDashboardFromD1 === "function") {
+        window.__updateDashboardFromD1(data);
+      }
+      if (typeof window.__updateQualFromD1 === "function") {
+        window.__updateQualFromD1(data);
+      }
 
       if (elements.dataRange) {
         elements.dataRange.textContent = "Zeitraum: " + (data.meta && data.meta.range_label ? data.meta.range_label : "Aktuell");
@@ -2893,6 +3161,10 @@ function renderQualSection(agg, data) {
         } else {
           sessionStorage.removeItem("department_id");
           delete document.body.dataset.departmentId;
+        }
+        const label = (deptSelect.options[deptSelect.selectedIndex]?.textContent || "").trim();
+        if (!window.__insightsDeptSyncState?.locked && typeof window.__syncSupabaseDept === "function") {
+          window.__syncSupabaseDept(label);
         }
         if (typeof window.__loadInsights === "function") {
           window.__loadInsights();

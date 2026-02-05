@@ -1019,7 +1019,7 @@ async function handleGetInsights(request, env) {
 
     // Fallback: wenn keine stations-Daten vorhanden sind, aggregiere direkt aus dem Stellenplan
     if (!stations.length) {
-      for (const row of (empTotalsRows?.results || [])) {
+  for (const row of (empTotalsRows?.results || [])) {
         const label = normalizeText(row.dept_label || "Station");
         const vkIst = normalizeNumber(row.total);
         stations.push({
@@ -1185,6 +1185,66 @@ async function handleGetInsights(request, env) {
       sollwert_hours: sollwertValue
     }));
 
+  const stationById = new Map((stationRowsList || []).map((row) => [
+    row.id,
+    normalizeText(row.name || row.code || "Station")
+  ]));
+
+  const buildMandatoryBreakdown = (stationQuals) => {
+    const breakdown = { PFK: 0, PFA: 0, MFA: 0, UK: 0 };
+    if (!stationQuals || !stationQuals.size) return breakdown;
+    for (const [qualId, total] of stationQuals.entries()) {
+      const info = qualMap.get(qualId) || { code: "", label: "", key: "" };
+      const tokens = [
+        (info.code || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        (info.label || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+        info.key || ""
+      ].filter(Boolean);
+      const match = mandatoryDefs.find((def) => matchAny(tokens, def.patterns));
+      if (match && breakdown[match.code] !== undefined) {
+        breakdown[match.code] += normalizeNumber(total);
+      }
+    }
+    return breakdown;
+  };
+
+  stations = (stations || []).map((row) => {
+    const stationKey = normalizeKey(row.station || "");
+    const stationRow = (stationRowsList || []).find((s) => normalizeKey(s.name || s.code || "") === stationKey) || null;
+    const stationId = stationRow ? stationRow.id : null;
+    const stationQuals = stationId ? (mixTotals.get(stationId) || new Map()) : null;
+    const breakdown = buildMandatoryBreakdown(stationQuals);
+    return {
+      ...row,
+      pfk_vza: breakdown.PFK || 0,
+      pfa_vza: breakdown.PFA || 0,
+      mfa_vza: breakdown.MFA || 0,
+      uk_vza: breakdown.UK || 0
+    };
+  });
+
+  const qualificationList = (qualRows.results || []).map((row) => ({
+    id: row.id,
+    code: row.code || "",
+    label: row.label || ""
+  }));
+
+  const qualMix = [];
+  for (const [stationId, qualTotals] of (mixTotals || new Map()).entries()) {
+    const stationName = stationById.get(stationId) || "Station";
+    for (const [qualId, total] of qualTotals.entries()) {
+      const info = qualMap.get(qualId) || { code: "", label: "" };
+      qualMix.push({
+        station_id: stationId,
+        station: stationName,
+        qualification_id: qualId,
+        code: info.code || "",
+        label: info.label || "",
+        total: normalizeNumber(total)
+      });
+    }
+  }
+
   const response = {
     ok: true,
     year,
@@ -1196,6 +1256,8 @@ async function handleGetInsights(request, env) {
       source: "d1"
     },
     stations,
+    qualifications: qualificationList,
+    qual_mix: qualMix,
     mandatory_quals: mandatoryQuals,
     trend,
     shift_mix: [
